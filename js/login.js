@@ -20,8 +20,8 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     errorBox.classList.add('hidden');
     errorBox.textContent = '';
 
-    // 1. Fallback ดั้งเดิมสำหรับ Admin โต๊ะกลาง (admin / 1234) เพื่อความรวดเร็วและไม่ล็อคระบบ
-    if (userInput.toLowerCase() === 'admin' && pass === '1234') {
+    // 1. ตรวจสอบรหัสผ่าน Admin โต๊ะกลาง
+    if (userInput.toLowerCase() === 'admin' && (pass === 'Upbaminton12345!' || pass === 'Upbadminton12345!')) {
         sessionStorage.setItem('isLoggedIn', 'true');
         sessionStorage.setItem('adminName', 'Admin');
         window.location.href = 'index.html';

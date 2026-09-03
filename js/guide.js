@@ -153,7 +153,7 @@ const GUIDE_CONTENT = {
             <div>
                 <h3 class="font-bold text-gray-800 dark:text-white mb-2">การเข้าสู่ระบบสำหรับ Admin</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>ใช้อีเมลแอดมิน หรือพิมพ์ <strong>admin</strong> รหัสผ่าน <strong>1234</strong></li>
+                    <li>ใช้บัญชีและรหัสผ่านเฉพาะของผู้ดูแลระบบ</li>
                     <li>จะเข้าสู่หน้า Admin Dashboard เพื่อจัดการคิวและสนาม</li>
                 </ul>
             </div>
