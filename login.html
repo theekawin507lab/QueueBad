@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ | ระบบจัดคิวแบดมินตัน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="css/common.css">
+</head>
+
+<body
+    class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300 min-h-screen flex items-center justify-center p-4 font-sans relative">
+
+    <div class="absolute top-4 right-4 flex items-center gap-2">
+        <button onclick="openGuideModal('login')"
+            class="px-3 py-1.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition shadow">
+            คู่มือ
+        </button>
+        <button onclick="toggleDarkMode()"
+            class="p-2 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition shadow">
+            <span id="themeIcon" class="text-xl">🌙</span>
+        </button>
+    </div>
+
+    <div
+        class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-md transform transition-all border border-gray-200 dark:border-gray-700">
+
+        <div class="text-center mb-8">
+            <div class="w-14 h-14 mx-auto mb-3 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/30">UP</div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">เข้าสู่ระบบ</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                สำหรับผู้จัดคิว (Admin) และผู้เล่นทั่วไป
+            </p>
+        </div>
+
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    อีเมล หรือ บัญชีผู้ใช้
+                </label>
+                <input type="text" id="username" required autocomplete="username"
+                    class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    placeholder="อีเมลผู้เล่น หรือ admin">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    รหัสผ่าน (Password)
+                </label>
+                <input type="password" id="password" required autocomplete="current-password"
+                    class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    placeholder="ใส่รหัสผ่าน">
+            </div>
+
+            <div id="errorMessage"
+                class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 dark:bg-red-950/40 dark:border-red-600 dark:text-red-300 p-3 rounded text-sm font-medium">
+                อีเมล/ชื่อผู้ใช้งาน หรือ รหัสผ่าน ไม่ถูกต้อง!
+            </div>
+
+            <button type="submit" id="loginBtn"
+                class="w-full bg-blue-600 text-white font-bold rounded-lg px-4 py-3 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition shadow-md mt-2 flex items-center justify-center gap-2">
+                <span>เข้าสู่ระบบ</span>
+            </button>
+        </form>
+
+        <!-- สมัครสมาชิกใหม่สำหรับผู้เล่น -->
+        <div class="mt-6 p-3.5 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 text-center">
+            <p class="text-xs text-blue-800 dark:text-blue-300">
+                ยังไม่มีบัญชีผู้เล่นสำหรับลงชื่อคิว?
+            </p>
+            <a href="register.html"
+                class="inline-block mt-1 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                ลงทะเบียนผู้เล่นใหม่ที่นี่
+            </a>
+        </div>
+
+        <div class="mt-6 text-center border-t border-gray-200 dark:border-gray-700 pt-5 space-y-2">
+            <div>
+                <button onclick="goToPublic()"
+                    class="inline-block text-sm text-slate-600 dark:text-slate-300 font-semibold hover:underline bg-transparent border-none cursor-pointer">
+                    ← ดูกระดานคิวสด (Public View)
+                </button>
+            </div>
+            <div>
+                <button onclick="window.location.href='booking.html'"
+                    class="inline-block text-xs text-purple-600 dark:text-purple-400 font-semibold hover:underline bg-transparent border-none cursor-pointer">
+                    แบบฟอร์มขอใช้สนามล่วงหน้า (เอกสาร ม.พะเยา)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+
+    <!-- Scripts แยกไฟล์ -->
+    <script src="js/common.js"></script>
+    <script src="js/guide.js"></script>
+    <script src="js/login.js"></script>
+</body>
+
+</html>

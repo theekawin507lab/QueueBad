@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>กระดานคิวแบดมินตัน (Public View)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+
+    <!-- เชื่อมโยงไฟล์ CSS -->
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/public.css">
+</head>
+
+<body
+    class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300 font-sans min-h-screen pb-10">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-blue-700 dark:bg-blue-900 text-white shadow-md sticky top-0 z-50 mb-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-14 items-center gap-2">
+                <div class="flex items-center gap-2 sm:gap-4 font-bold text-base sm:text-lg shrink-0">
+                    UP Badminton
+                </div>
+                <div class="flex gap-1.5 sm:gap-3 text-xs sm:text-sm font-medium items-center flex-wrap justify-end">
+                    <button onclick="openGuideModal('public')"
+                        class="hover:bg-blue-600 dark:hover:bg-blue-800 px-2.5 py-1.5 rounded transition">
+                        คู่มือ</button>
+                    <button onclick="openReportModal()"
+                        class="bg-orange-500 hover:bg-orange-600 px-2.5 py-1.5 rounded transition shadow">
+                        รายงานปัญหา</button>
+                    <a href="public.html"
+                        class="bg-blue-800 dark:bg-blue-950 px-2.5 py-1.5 rounded transition shadow-inner hidden md:inline-block">ดูกระดานคิว</a>
+                    <a href="booking.html"
+                        class="hover:bg-blue-600 dark:hover:bg-blue-800 px-2.5 py-1.5 rounded transition hidden sm:inline-block">ขอใช้สนาม</a>
+
+                    <!-- ปุ่ม Fullscreen สำหรับขึ้นจอทีวี -->
+                    <button onclick="toggleFullscreen()" title="เต็มจอ (สำหรับฉายขึ้นจอทีวี)"
+                        class="hover:bg-blue-600 dark:hover:bg-blue-800 px-2.5 py-1.5 rounded transition flex items-center gap-1">
+                        <span id="fullscreenIcon">⛶</span>
+                        <span class="hidden sm:inline text-xs">เต็มจอ</span>
+                    </button>
+
+                    <!-- พื้นที่โปรไฟล์ผู้เล่น / ล็อกอิน -->
+                    <div id="authNavContainer" class="flex items-center gap-1">
+                        <!-- Render จาก JS: แสดงปุ่มโปรไฟล์ หรือ ปุ่มเข้าสู่ระบบ -->
+                        <a href="login.html"
+                            class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                            <span>เข้าสู่ระบบ</span>
+                        </a>
+                    </div>
+
+                    <!-- ลิงก์แอดมิน (สำหรับแอดมินเท่านั้น) -->
+                    <a href="login.html" title="เข้าสู่ระบบ Admin"
+                        class="opacity-40 hover:opacity-100 transition px-2 py-1 rounded text-xs font-semibold text-white/80">
+                        Admin
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- แถบแจ้งเตือนคิวส่วนตัวของผู้เล่น (Personal Mobile Queue Banner) -->
+        <div id="myQueueBanner" class="hidden mb-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-2xl shadow-lg border border-blue-400/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0">
+                    คิว
+                </div>
+                <div>
+                    <div class="text-xs text-blue-100 font-medium flex items-center gap-1.5">
+                        <span>สถานะของคุณ:</span>
+                        <span id="bannerPlayerName" class="font-bold text-white underline"></span>
+                    </div>
+                    <div id="bannerStatusText" class="text-sm sm:text-base font-bold mt-0.5">
+                        กำลังรอคิว...
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-center flex-wrap">
+                <div id="bannerActionBtnContainer"></div>
+                <button onclick="openProfileDrawer()"
+                    class="bg-white text-blue-700 hover:bg-blue-50 px-3.5 py-1.5 rounded-xl text-xs font-bold transition shadow">
+                    ดูโปรไฟล์
+                </button>
+            </div>
+        </div>
+
+        <!-- แถบด้านบน พร้อมแสดงวันที่ -->
+        <div
+            class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white">Live Dashboard กระดานคิว</h1>
+                    <span id="cloudSyncBadge" class="hidden text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-2.5 py-0.5 rounded-full font-semibold border border-emerald-300 dark:border-emerald-800">
+                        Cloud Realtime
+                    </span>
+                </div>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    อัปเดตสถานะอัตโนมัติ (Real-time) <span class="mx-1">•</span> <span id="currentDateDisplay"
+                        class="font-medium text-blue-600 dark:text-blue-400"></span>
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleDarkMode()"
+                    class="p-2 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition shadow-sm border border-slate-200 dark:border-slate-600"
+                    title="เปลี่ยนธีม">
+                    <span id="themeIcon" class="text-lg">🌙</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- โครงสร้างหน้าจอแบบใหม่: 4 สนามด้านบน + คิวกลาง + รายชื่อผู้เล่นด้านล่าง -->
+        
+        <!-- ส่วนที่ 1: สถานะ 4 สนามแข่งขัน (คงที่ 4 สนาม) -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <span>สถานะสนามแข่งขัน (สนาม 1 - 4)</span>
+                </h2>
+                <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-600">
+                    ระบบ 4 สนาม
+                </span>
+            </div>
+            <!-- Grid 4 สนามคงที่ (1 แถว 4 คอร์ทบนจอใหญ่, 2x2 บนแท็บเล็ต, 1 คอลัมน์บนมือถือ) -->
+            <div id="courtsDashboard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+                <!-- Render Court 1 - 4 จาก JS -->
+            </div>
+        </div>
+
+        <!-- ส่วนที่ 2: แถวคิวรอลงสนามกลาง (Central Waiting Queue) -->
+        <div class="mb-8 bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg sm:text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <span>แถวคิวรอลงสนามกลาง (Central Queue)</span>
+                        <span id="centralQueueCountBadge" class="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                            0 คิว
+                        </span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        คิวเรียงตามลำดับ เมื่อสนามใดแข่งขันเสร็จสิ้น ระบบจะดึงคิวแรกที่พร้อม (ครบ 4 คน) เข้าสู่สนามว่างทันที
+                    </p>
+                </div>
+                <button onclick="openCreateQueueModal()"
+                    class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5 self-stretch sm:self-auto justify-center hover:scale-105 active:scale-95">
+                    <span>+</span>
+                    <span>สร้างคิวใหม่</span>
+                </button>
+            </div>
+
+            <!-- รายการคิวรอทั้งหมด -->
+            <div id="centralQueueContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+                <!-- Render Central Queues จาก JS -->
+            </div>
+        </div>
+
+        <!-- ส่วนที่ 3: รายชื่อผู้เล่นที่พร้อมลงสนาม (Present Players - Compact & Collapsible) -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div class="flex items-center gap-2.5 cursor-pointer select-none" onclick="toggleOnlinePlayersCollapse()">
+                    <h2 class="text-base sm:text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <span>ผู้เล่นที่พร้อมลงสนาม</span>
+                    </h2>
+                    <span id="onlineCountBadge" class="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                        0 คน
+                    </span>
+                    <button type="button" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 flex items-center gap-1 font-semibold">
+                        <span id="onlineCollapseText">พับเก็บ</span>
+                        <span id="onlineCollapseIcon">▲</span>
+                    </button>
+                </div>
+                <div class="w-full sm:w-72">
+                    <input type="text" id="searchOnlinePlayerInput" oninput="filterOnlinePlayers()" placeholder="ค้นหาชื่อผู้เล่น..."
+                        class="w-full border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 transition">
+                </div>
+            </div>
+
+            <div id="onlinePlayersWrapper" class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <div id="onlinePlayersContainer" class="flex flex-wrap gap-2">
+                    <!-- Rendered as compact chips จาก JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =============================================
+         Player Profile Drawer / Modal (หน้าระบบโปรไฟล์ของผู้เล่น)
+         ============================================= -->
+    <div id="profileDrawer" class="hidden fixed inset-0 z-[100] overflow-hidden">
+        <!-- Backdrop -->
+        <div onclick="closeProfileDrawer()" class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
+
+        <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div class="w-screen max-w-md bg-white dark:bg-slate-800 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-700 transform transition-transform">
+                
+                <!-- Drawer Header -->
+                <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-blue-50/50 dark:bg-slate-800/80">
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <span>โปรไฟล์ผู้เล่น</span>
+                    </h2>
+                    <button onclick="closeProfileDrawer()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl leading-none">&times;</button>
+                </div>
+
+                <!-- Drawer Content -->
+                <div class="p-6 overflow-y-auto flex-1 space-y-6">
+                    <!-- Profile Card -->
+                    <div class="text-center p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-800 rounded-2xl border border-blue-100 dark:border-slate-700 shadow-inner">
+                        <div class="w-20 h-20 mx-auto rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-black shadow-md mb-3" id="profileAvatar">
+                            P
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white" id="profileNickname">ชื่อเล่น</h3>
+                        <p class="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-0.5" id="profileFullName">ชื่อจริง - นามสกุล</p>
+                        <div class="inline-block mt-2 px-3 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-semibold" id="profileRole">
+                            ผู้เล่นทั่วไป (Player)
+                        </div>
+                    </div>
+
+                    <!-- ข้อมูลส่วนตัวระบุตัวตน -->
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">ข้อมูลระบุตัวตน</h4>
+                        <div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 space-y-2.5 text-xs sm:text-sm border border-slate-200/80 dark:border-slate-700">
+                            <div class="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-600">
+                                <span class="text-slate-500 dark:text-slate-400">รหัสนิสิต</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileStudentId">-</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-600">
+                                <span class="text-slate-500 dark:text-slate-400">เบอร์โทรศัพท์</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profilePhone">-</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-600">
+                                <span class="text-slate-500 dark:text-slate-400">คณะ</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileFaculty">-</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-600">
+                                <span class="text-slate-500 dark:text-slate-400">สาขาวิชา</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileMajor">-</span>
+                            </div>
+                            <div class="flex justify-between py-1">
+                                <span class="text-slate-500 dark:text-slate-400">ชั้นปี</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileYear">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- สถานะคิวในวันนี้ -->
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">สถานะคิวของคุณวันนี้</h4>
+                        <div id="profileCurrentQueue" class="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/50 text-sm">
+                            <p class="text-amber-800 dark:text-amber-300 font-medium">กำลังตรวจสอบคิว...</p>
+                        </div>
+                    </div>
+
+                    <!-- สวิตช์เช็คชื่อมาสนาม (Self Check-in) -->
+                    <div class="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-bold text-emerald-800 dark:text-emerald-300">สถานะที่สนาม</div>
+                            <div id="selfPresenceLabel" class="text-xs text-slate-600 dark:text-slate-300 mt-0.5">พร้อมลงสนาม</div>
+                        </div>
+                        <button onclick="toggleSelfPresence()" id="btnTogglePresence"
+                            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow">
+                            เปลี่ยนสถานะ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Drawer Footer -->
+                <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex gap-3">
+                    <button onclick="logoutPlayer()"
+                        class="w-full bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 font-bold py-2.5 px-4 rounded-xl text-sm transition">
+                        ออกจากระบบโปรไฟล์
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =============================================
+         Floating Action Button (ปุ่มลอยสร้างคิวสำหรับมือถือ)
+         ============================================= -->
+    <div id="fabContainer" class="fixed bottom-6 right-6 z-40">
+        <button onclick="openCreateQueueModal()" id="btnFabCreateQueue"
+            class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-4 py-3 sm:px-5 sm:py-3.5 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all text-sm border-2 border-white/20">
+            <span class="text-base font-black">+</span>
+            <span>สร้างคิว / เปิดห้อง</span>
+        </button>
+    </div>
+
+    <!-- =============================================
+         Modal 1: สร้างคิวใหม่ / เปิดห้องรอ (Create Queue Modal)
+         ============================================= -->
+    <div id="createQueueModal" class="hidden fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-modal-in border border-slate-200 dark:border-slate-700">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white flex justify-between items-center">
+                <div class="flex items-center gap-2 font-bold text-lg">
+                    <span>เปิดห้องคิวใหม่</span>
+                </div>
+                <button onclick="closeCreateQueueModal()" class="text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+
+            <form id="createQueueForm" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto" onsubmit="submitCreateQueue(event)">
+                <!-- เลือกสนาม -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                        การจัดสรรสนาม
+                    </label>
+                    <select id="cqCourt"
+                        class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        <option value="auto">อัตโนมัติ (ลงคอร์ทแรกที่ว่าง - แนะนำ)</option>
+                        <option value="1">สนาม 1</option>
+                        <option value="2">สนาม 2</option>
+                        <option value="3">สนาม 3</option>
+                        <option value="4">สนาม 4</option>
+                    </select>
+                </div>
+
+                <!-- ทางลัดเลือกรูปแบบ -->
+                <div class="flex gap-2">
+                    <button type="button" onclick="setQuickSlotFormat('solo')"
+                        class="flex-1 py-1.5 px-2 bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 transition">
+                        มาคนเดียว (เปิดว่าง 3 ที่)
+                    </button>
+                    <button type="button" onclick="setQuickSlotFormat('pair')"
+                        class="flex-1 py-1.5 px-2 bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 transition">
+                        มีคู่แล้ว (เปิดว่างทีม B)
+                    </button>
+                </div>
+
+                <!-- ผู้เล่นทีม A -->
+                <div class="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2.5">
+                    <div class="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">ทีม A (ฝั่งสีน้ำเงิน)</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] text-slate-500 mb-0.5">ผู้เล่น 1 (ผู้สร้างคิว)</label>
+                            <input type="text" id="cqA1" readonly
+                                class="w-full bg-blue-100/70 dark:bg-slate-700 border border-blue-300 dark:border-slate-600 rounded-lg px-3 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-500 mb-0.5">ผู้เล่น 2 (คู่หู)</label>
+                            <select id="cqA2"
+                                class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">-- (ว่าง - รอคนเข้าร่วม) --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ผู้เล่นทีม B -->
+                <div class="p-3.5 bg-red-50/60 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900/40 space-y-2.5">
+                    <div class="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider">ทีม B (ฝั่งสีแดง)</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] text-slate-500 mb-0.5">ผู้เล่น 1</label>
+                            <select id="cqB1"
+                                class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500">
+                                <option value="">-- (ว่าง - รอคนเข้าร่วม) --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-500 mb-0.5">ผู้เล่น 2</label>
+                            <select id="cqB2"
+                                class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500">
+                                <option value="">-- (ว่าง - รอคนเข้าร่วม) --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="cqError" class="hidden p-3 bg-red-100 dark:bg-red-950/40 border-l-4 border-red-500 text-red-700 dark:text-red-300 text-xs font-semibold rounded"></div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeCreateQueueModal()"
+                        class="flex-1 py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold rounded-xl text-xs transition">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" id="btnSubmitCreateQueue"
+                        class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-lg">
+                        ยืนยันเปิดคิว
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =============================================
+         Modal 2: เข้าร่วมคิว (Join Queue Modal)
+         ============================================= -->
+    <div id="joinQueueModal" class="hidden fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-modal-in border border-slate-200 dark:border-slate-700">
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-4 text-white flex justify-between items-center">
+                <div class="flex items-center gap-2 font-bold text-base">
+                    <span>เข้าร่วมคิวที่ <span id="jqMatchId"></span></span>
+                </div>
+                <button onclick="closeJoinQueueModal()" class="text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <div class="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    สนามที่ <span id="jqCourt" class="font-bold text-slate-700 dark:text-slate-200"></span> • เลือกตำแหน่งที่คุณต้องการลงเล่น:
+                </div>
+
+                <!-- สล็อตทีม A -->
+                <div class="space-y-2">
+                    <div class="text-xs font-bold text-blue-600 dark:text-blue-400">ทีม A</div>
+                    <div id="jqSlotA1" class="p-2.5 rounded-xl border text-xs flex justify-between items-center transition"></div>
+                    <div id="jqSlotA2" class="p-2.5 rounded-xl border text-xs flex justify-between items-center transition"></div>
+                </div>
+
+                <!-- สล็อตทีม B -->
+                <div class="space-y-2">
+                    <div class="text-xs font-bold text-red-600 dark:text-red-400">ทีม B</div>
+                    <div id="jqSlotB1" class="p-2.5 rounded-xl border text-xs flex justify-between items-center transition"></div>
+                    <div id="jqSlotB2" class="p-2.5 rounded-xl border text-xs flex justify-between items-center transition"></div>
+                </div>
+
+                <div id="jqError" class="hidden p-2.5 bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs font-semibold rounded-lg"></div>
+
+                <button type="button" onclick="closeJoinQueueModal()"
+                    class="w-full py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition">
+                    ปิด
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+
+    <!-- เชื่อมโยงไฟล์ JavaScript -->
+    <script src="js/common.js"></script>
+    <script src="js/report.js"></script>
+    <script src="js/guide.js"></script>
+    <script src="js/public.js"></script>
+</body>
+
+</html>

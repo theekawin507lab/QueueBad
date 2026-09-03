@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ลงทะเบียนผู้เล่น | ระบบจัดคิวแบดมินตัน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="css/common.css">
+</head>
+
+<body
+    class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300 min-h-screen p-4 py-8 font-sans flex items-center justify-center relative">
+
+    <div class="absolute top-4 right-4 flex items-center gap-2">
+        <button type="button" onclick="toggleDarkMode()"
+            class="p-2 rounded-full bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow">
+            <span id="themeIcon" class="text-xl">🌙</span>
+        </button>
+    </div>
+
+    <div
+        class="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-2xl shadow-xl w-full max-w-xl border border-slate-200 dark:border-slate-700 my-auto">
+
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <div class="w-12 h-12 mx-auto mb-2 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-lg shadow-md">UP</div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-white">ลงทะเบียนผู้เล่นใหม่</h1>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                สร้างโปรไฟล์ผู้เล่นเพื่อใช้ลงชื่อคิวแบดมินตัน UP Badminton
+            </p>
+        </div>
+
+        <form id="registerForm" class="space-y-5">
+            <!-- ส่วนที่ 1: ข้อมูลบัญชีผู้ใช้ -->
+            <div class="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
+                <h2 class="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                    ข้อมูลเข้าสู่ระบบ
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold mb-1">อีเมล (Email) <span class="text-red-500">*</span></label>
+                        <input type="email" id="regEmail" required autocomplete="email"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="example@email.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">รหัสผ่าน <span class="text-red-500">*</span></label>
+                        <input type="password" id="regPassword" required minlength="6" autocomplete="new-password"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="อย่างน้อย 6 ตัวอักษร">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">ยืนยันรหัสผ่าน <span class="text-red-500">*</span></label>
+                        <input type="password" id="regConfirmPassword" required minlength="6" autocomplete="new-password"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="พิมพ์รหัสผ่านอีกครั้ง">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 2: ข้อมูลผู้เล่น (แสดงบนคิว) -->
+            <div class="p-4 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/50 space-y-4">
+                <h2 class="text-sm font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                    ชื่อที่ใช้บนกระดานคิว
+                </h2>
+
+                <div>
+                    <label class="block text-xs font-semibold mb-1">
+                        ชื่อเล่น (Nickname / Display Name) <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="regNickname" required maxlength="20"
+                        class="w-full border border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        placeholder="เช่น นิว, วา-ขาจร, บอล (ชื่อที่แอดมินและเพื่อนจะเรียก)">
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">ชื่อนี้จะแสดงบนจอ Live Board และการ์ดแข่งขัน</p>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 3: ข้อมูลยืนยันตัวตน -->
+            <div class="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
+                <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    ข้อมูลส่วนตัว (ระบุตัวตน)
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">ชื่อจริง <span class="text-red-500">*</span></label>
+                        <input type="text" id="regFirstName" required
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="เช่น นายสมชาย">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">นามสกุล <span class="text-red-500">*</span></label>
+                        <input type="text" id="regLastName" required
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="เช่น ใจดี">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">
+                            รหัสนิสิต <span class="text-slate-400 font-normal">(ไม่บังคับ)</span>
+                        </label>
+                        <input type="text" id="regStudentId" maxlength="11"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="เช่น 64021234">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+                        <input type="tel" id="regPhone" required inputmode="tel"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="เช่น 0812345678">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">คณะ <span class="text-red-500">*</span></label>
+                        <input type="text" id="regFaculty" required
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="เช่น เทคโนโลยีสารสนเทศฯ">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">สาขาวิชา <span class="text-red-500">*</span></label>
+                        <input type="text" id="regMajor" required
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                            placeholder="เช่น วิทยาการคอมพิวเตอร์">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold mb-1">ชั้นปี <span class="text-red-500">*</span></label>
+                        <select id="regYear" required
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                            <option value="">-- เลือกชั้นปี --</option>
+                            <option value="1">ปี 1 (Freshman)</option>
+                            <option value="2">ปี 2 (Sophomore)</option>
+                            <option value="3">ปี 3 (Junior)</option>
+                            <option value="4">ปี 4 (Senior)</option>
+                            <option value="5">ปี 5+</option>
+                            <option value="grad">บัณฑิตศึกษา (ป.โท / ป.เอก)</option>
+                            <option value="alumni">ศิษย์เก่า / บุคคลภายนอก / เจ้าหน้าที่</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- กล่องข้อความแจ้งเตือน Error -->
+            <div id="registerError"
+                class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 dark:bg-red-950/40 dark:border-red-600 dark:text-red-300 p-3 rounded text-sm font-medium">
+            </div>
+
+            <!-- ปุ่ม Submit -->
+            <button type="submit" id="btnRegister"
+                class="w-full bg-blue-600 text-white font-bold rounded-xl px-4 py-3.5 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-900 transition shadow-lg flex items-center justify-center gap-2 text-base">
+                <span>ยืนยันการลงทะเบียน</span>
+            </button>
+        </form>
+
+        <div class="mt-6 text-center border-t border-slate-200 dark:border-slate-700 pt-4 text-sm text-slate-500 dark:text-slate-400">
+            มีบัญชีผู้ใช้งานอยู่แล้ว?
+            <a href="login.html" class="text-blue-600 dark:text-blue-400 font-bold hover:underline ml-1">
+                เข้าสู่ระบบที่นี่
+            </a>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+
+    <!-- Scripts แยกไฟล์ -->
+    <script src="js/common.js"></script>
+    <script src="js/register.js"></script>
+</body>
+
+</html>

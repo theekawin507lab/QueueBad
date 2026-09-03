@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ฟอร์มจองสนามแบดมินตันล่วงหน้า | มหาวิทยาลัยพะเยา</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+    </script>
+    <link rel="stylesheet" href="css/common.css">
+</head>
+
+<body
+    class="min-h-screen bg-slate-100 font-sans text-slate-800 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100">
+    <main class="mx-auto min-h-screen max-w-7xl p-2 sm:p-4">
+        <div
+            class="mb-6 flex flex-col gap-4 bg-white p-4 shadow-md sm:flex-row sm:items-center sm:justify-between sm:rounded-lg dark:bg-slate-800">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800 sm:text-3xl dark:text-white">แบบฟอร์มขอใช้สนาม</h1>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">มหาวิทยาลัยพะเยา • สนามแบดมินตัน</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="openGuideModal('booking')"
+                    class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow transition hover:bg-emerald-700">
+                    คู่มือ
+                </button>
+                <button onclick="openReportModal()"
+                    class="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white shadow transition hover:bg-orange-600">
+                    รายงานปัญหา
+                </button>
+                <a href="public.html"
+                    class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow transition hover:bg-blue-700">
+                    ← กลับหน้ากระดานคิว
+                </a>
+                <button type="button" onclick="toggleDarkMode()" aria-label="สลับโหมดสว่างหรือมืด"
+                    class="rounded-full bg-slate-200 p-2 text-lg shadow transition hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:bg-slate-700 dark:hover:bg-slate-600">
+                    <span id="themeIcon">🌙</span>
+                </button>
+            </div>
+        </div>
+
+        <section class="mx-auto max-w-5xl overflow-hidden bg-white shadow-2xl sm:rounded-2xl dark:bg-slate-800">
+            <header
+                class="bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-6 text-center text-white sm:px-8 sm:py-7">
+                <h1 class="text-2xl font-bold sm:text-3xl">แบบฟอร์มขอใช้สนามแบดมินตันล่วงหน้า</h1>
+                <p class="mt-2 text-sm text-violet-100 sm:text-base">สำหรับยื่นขออนุญาตใช้สถานที่ราชการ มหาวิทยาลัยพะเยา</p>
+                <p class="mt-1 text-xs text-violet-200">เวลาทำการ: จ.-ศ. (16.00–21.30 น.) | ส.-อา. และวันหยุด (10.00–17.00 น.)</p>
+            </header>
+
+            <form id="bookingForm" class="space-y-6 p-5 sm:p-8" novalidate>
+                <section aria-labelledby="bookerHeading">
+                    <div class="mb-5 flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
+                        <span aria-hidden="true" class="text-lg"></span>
+                        <h2 id="bookerHeading" class="text-lg font-bold">ข้อมูลผู้จอง</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <div>
+                            <label for="firstName" class="mb-1.5 block text-sm font-semibold">ชื่อ</label>
+                            <input id="firstName" name="firstName" type="text" required autocomplete="given-name"
+                                placeholder="กรอกชื่อ" class="field-input">
+                        </div>
+                        <div>
+                            <label for="lastName" class="mb-1.5 block text-sm font-semibold">นามสกุล</label>
+                            <input id="lastName" name="lastName" type="text" required autocomplete="family-name"
+                                placeholder="กรอกนามสกุล" class="field-input">
+                        </div>
+                        <div>
+                            <label for="bookerFaculty" class="mb-1.5 block text-sm font-semibold">คณะ</label>
+                            <input id="bookerFaculty" name="faculty" type="text" required
+                                placeholder="เช่น คณะเทคโนโลยีสารสนเทศและการสื่อสาร" class="field-input">
+                        </div>
+                        <div>
+                            <label for="bookerMajor" class="mb-1.5 block text-sm font-semibold">สาขาวิชา</label>
+                            <input id="bookerMajor" name="major" type="text" required
+                                placeholder="เช่น เทคโนโลยีสารสนเทศ" class="field-input">
+                        </div>
+                        <div>
+                            <label for="bookerPhone"
+                                class="mb-1.5 block text-sm font-semibold">เบอร์โทรศัพท์ติดต่อ</label>
+                            <input id="bookerPhone" name="phone" type="tel" required autocomplete="tel" inputmode="tel"
+                                placeholder="เช่น 0625071668" class="field-input">
+                        </div>
+                        <div>
+                            <label for="bookingPurpose"
+                                class="mb-1.5 block text-sm font-semibold">วัตถุประสงค์ในการจอง</label>
+                            <textarea id="bookingPurpose" name="purpose" required rows="1"
+                                placeholder="เช่น แข่งขันกีฬาภายในคณะ"
+                                class="field-input min-h-[46px] resize-y"></textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <section aria-labelledby="reservationHeading">
+                    <div class="mb-5 flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
+                        <span aria-hidden="true" class="text-lg"></span>
+                        <h2 id="reservationHeading" class="text-lg font-bold">รายละเอียดการใช้สนาม</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                            <label for="bookingStartDate" class="mb-1.5 block text-sm font-semibold">วันที่เริ่มจอง</label>
+                            <input id="bookingStartDate" name="bookingStartDate" type="date" required class="field-input">
+                        </div>
+                        <div>
+                            <label for="bookingEndDate" class="mb-1.5 block text-sm font-semibold">วันที่สิ้นสุด</label>
+                            <input id="bookingEndDate" name="bookingEndDate" type="date" required class="field-input">
+                        </div>
+                        <div>
+                            <label for="startTime" class="mb-1.5 block text-sm font-semibold">เวลาเริ่มเล่น</label>
+                            <input id="startTime" name="startTime" type="time" required step="60" class="field-input">
+                        </div>
+                        <div>
+                            <label for="endTime" class="mb-1.5 block text-sm font-semibold">เวลาสิ้นสุด</label>
+                            <input id="endTime" name="endTime" type="time" required step="60" class="field-input">
+                        </div>
+                    </div>
+                    <p id="openingHours" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        เลือกวันเพื่อดูช่วงเวลาที่จองได้</p>
+
+                    <fieldset class="mt-5">
+                        <legend class="mb-2 text-sm font-semibold">สนามที่ต้องการจอง <span
+                                class="font-normal text-slate-500 dark:text-slate-400">(เลือกได้มากกว่า 1 สนาม สูงสุด 4
+                                สนาม)</span></legend>
+                        <div id="courtOptions" class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-4">
+                            <label class="court-option"><input class="court-checkbox" type="checkbox"
+                                    value="1"><span>สนาม 1</span></label>
+                            <label class="court-option"><input class="court-checkbox" type="checkbox"
+                                    value="2"><span>สนาม 2</span></label>
+                            <label class="court-option"><input class="court-checkbox" type="checkbox"
+                                    value="3"><span>สนาม 3</span></label>
+                            <label class="court-option"><input class="court-checkbox" type="checkbox"
+                                    value="4"><span>สนาม 4</span></label>
+                        </div>
+                        <p id="courtHint" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            กรุณาเลือกสนามอย่างน้อย 1 สนาม</p>
+                    </fieldset>
+                </section>
+
+                <div id="errorMessage" role="alert"
+                    class="hidden rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                </div>
+
+                <button type="submit"
+                    class="w-full rounded-xl bg-violet-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-violet-700 focus:outline-none focus:ring-4 focus:ring-violet-300 dark:focus:ring-violet-900">
+                    ยืนยันการจอง และดาวน์โหลดเอกสาร Word
+                </button>
+            </form>
+        </section>
+    </main>
+
+    <script src="js/common.js"></script>
+    <script src="js/report.js"></script>
+    <script src="js/guide.js"></script>
+    <script>
+        const form = document.getElementById('bookingForm');
+        const bookingStartDateInput = document.getElementById('bookingStartDate');
+        const bookingEndDateInput = document.getElementById('bookingEndDate');
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+        const openingHours = document.getElementById('openingHours');
+        const errorBox = document.getElementById('errorMessage');
+        const courtCheckboxes = [...document.querySelectorAll('.court-checkbox')];
+        const courtHint = document.getElementById('courtHint');
+        const MAX_COURTS = courtCheckboxes.length;
+
+        function toDateInputValue(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getBookingWindow(dateValue) {
+            const [year, month, day] = dateValue.split('-').map(Number);
+            const dayOfWeek = new Date(year, month - 1, day).getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            return isWeekend
+                ? { open: '10:00', close: '17:00', label: 'วันเสาร์-อาทิตย์: จองได้เวลา 10.00–17.00 น.' }
+                : { open: '16:00', close: '21:30', label: 'วันจันทร์-ศุกร์: จองได้เวลา 16.00–21.30 น.' };
+        }
+
+        function getBookingWindowForDateRange(startDateValue, endDateValue) {
+            const startDate = new Date(`${startDateValue}T00:00:00`);
+            const endDate = new Date(`${endDateValue || startDateValue}T00:00:00`);
+            let hasWeekday = false;
+            let hasWeekend = false;
+
+            for (const date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+                const day = date.getDay();
+                if (day === 0 || day === 6) hasWeekend = true;
+                else hasWeekday = true;
+            }
+
+            if (hasWeekday && hasWeekend) {
+                return {
+                    open: '16:00',
+                    close: '17:00',
+                    label: 'ช่วงวันที่เลือกมีทั้งวันธรรมดาและเสาร์-อาทิตย์ จึงจองได้ในช่วงเวลาร่วมกัน 16.00–17.00 น.'
+                };
+            }
+
+            return hasWeekend
+                ? { open: '10:00', close: '17:00', label: 'ช่วงวันที่เลือกเป็นวันเสาร์-อาทิตย์: จองได้เวลา 10.00–17.00 น.' }
+                : { open: '16:00', close: '21:30', label: 'ช่วงวันที่เลือกเป็นวันจันทร์-ศุกร์: จองได้เวลา 16.00–21.30 น.' };
+        }
+
+        function updateDateLimits() {
+            const today = toDateInputValue(new Date());
+            bookingStartDateInput.min = today;
+            bookingEndDateInput.min = bookingStartDateInput.value || today;
+        }
+
+        function updateTimeLimits() {
+            if (!bookingStartDateInput.value) {
+                openingHours.textContent = 'เลือกวันที่เริ่มจองและวันที่สิ้นสุดเพื่อดูช่วงเวลาที่จองได้';
+                startTimeInput.removeAttribute('min');
+                startTimeInput.removeAttribute('max');
+                endTimeInput.removeAttribute('min');
+                endTimeInput.removeAttribute('max');
+                return;
+            }
+
+            if (bookingEndDateInput.value && bookingEndDateInput.value < bookingStartDateInput.value) {
+                openingHours.textContent = 'วันที่สิ้นสุดต้องไม่อยู่ก่อนวันที่เริ่มจอง';
+                return;
+            }
+
+            const window = getBookingWindowForDateRange(bookingStartDateInput.value, bookingEndDateInput.value);
+            openingHours.textContent = window.label;
+            startTimeInput.min = window.open;
+            startTimeInput.max = window.close;
+            endTimeInput.min = window.open;
+            endTimeInput.max = window.close;
+        }
+
+        function timeToMinutes(time) {
+            const [hour, minute] = time.split(':').map(Number);
+            return (hour * 60) + minute;
+        }
+
+        function selectedCourts() {
+            return courtCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+        }
+
+        function updateCourtSelection() {
+            const courts = selectedCourts();
+            courtCheckboxes.forEach((checkbox) => {
+                checkbox.disabled = !checkbox.checked && courts.length >= MAX_COURTS;
+            });
+            courtHint.textContent = courts.length
+                ? `เลือกแล้ว ${courts.length} จาก ${MAX_COURTS} สนาม`
+                : 'กรุณาเลือกสนามอย่างน้อย 1 สนาม';
+        }
+
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.classList.remove('hidden');
+            errorBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function clearError() {
+            errorBox.textContent = '';
+            errorBox.classList.add('hidden');
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function formatDuration(totalMinutes) {
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            if (!hours) return `${minutes} นาที`;
+            return minutes ? `${hours} ชั่วโมง ${minutes} นาที` : `${hours} ชั่วโมง`;
+        }
+
+        function thaiDate(dateValue) {
+            const [year, month, day] = dateValue.split('-').map(Number);
+            return new Date(year, month - 1, day).toLocaleDateString('th-TH', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+
+        function describeBookingDates(startDate, endDate) {
+            return startDate === endDate
+                ? `ในวันที่ ${thaiDate(startDate)}`
+                : `ตั้งแต่วันที่ ${thaiDate(startDate)} ถึงวันที่ ${thaiDate(endDate)}`;
+        }
+
+        function exportToWord(booking) {
+            const courtText = booking.courts.map((court) => `สนาม ${court}`).join(', ');
+            const requestDate = thaiDate(toDateInputValue(new Date()));
+            const documentHtml = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="utf-8">
+    <title>แบบฟอร์มขอใช้สนามแบดมินตัน</title>
+    <style>
+        body { font-family: 'TH Sarabun New', 'TH SarabunPSK', Arial, sans-serif; font-size: 18pt; line-height: 1.6; }
+        h1 { margin: 0; text-align: center; font-size: 24pt; }
+        h2 { margin: 0 0 28px; text-align: center; font-size: 20pt; font-weight: normal; }
+        .document-date { margin: 0 0 20px; text-align: right; }
+        .subject, .salutation { margin: 0 0 8px; }
+        .paragraph { margin: 14px 0; text-align: justify; text-indent: 3em; }
+        .closing { margin: 22px 0 0; text-indent: 3em; }
+        .signature { margin-top: 55px; margin-left: 52%; width: 45%; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>แบบฟอร์มขอใช้สนามแบดมินตัน</h1>
+    <h2>มหาวิทยาลัยพะเยา</h2>
+
+    <p class="document-date">วันที่ ${escapeHtml(requestDate)}</p>
+    <p class="subject"><strong>เรื่อง</strong> ขออนุญาตใช้สนามแบดมินตัน</p>
+    <p class="salutation"><strong>เรียน</strong> ผู้รับผิดชอบสนามแบดมินตัน มหาวิทยาลัยพะเยา</p>
+
+    <p class="paragraph">ข้าพเจ้า ${escapeHtml(booking.fullName)} สังกัด${escapeHtml(booking.faculty)} สาขาวิชา${escapeHtml(booking.major)} หมายเลขโทรศัพท์ ${escapeHtml(booking.phone)} มีความประสงค์ขออนุญาตใช้สนามแบดมินตัน จำนวน ${escapeHtml(booking.courts.length)} สนาม ได้แก่ ${escapeHtml(courtText)} ${escapeHtml(describeBookingDates(booking.startDate, booking.endDate))} เวลา ${escapeHtml(booking.startTime)} น. ถึง ${escapeHtml(booking.endTime)} น. รวมระยะเวลาในการใช้ ${escapeHtml(formatDuration(booking.durationMinutes))} ต่อวัน เพื่อ${escapeHtml(booking.purpose)}</p>
+
+    <p class="paragraph">ในการนี้ ข้าพเจ้าขอรับรองว่าจะใช้สถานที่ด้วยความระมัดระวัง ปฏิบัติตามระเบียบและข้อกำหนดการใช้สนามของมหาวิทยาลัยพะเยาอย่างเคร่งครัด รักษาความสะอาดและทรัพย์สินของมหาวิทยาลัย รวมทั้งยินดีรับผิดชอบต่อความเสียหายที่เกิดจากการใช้งานตามระเบียบที่เกี่ยวข้อง</p>
+
+    <p class="closing">จึงเรียนมาเพื่อโปรดพิจารณาอนุญาต</p>
+    <div class="signature">
+        <p>ลงชื่อ ........................................................ ผู้ยื่นคำขอ</p>
+        <p>( ${escapeHtml(booking.fullName)} )</p>
+        <p>วันที่ ${escapeHtml(requestDate)}</p>
+    </div>
+</body>
+</html>`;
+
+            const blob = new Blob(['\ufeff', documentHtml], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const safeName = booking.fullName.replace(/[\\/:*?"<>|]/g, '-');
+            link.href = url;
+            link.download = `แบบฟอร์มจองสนาม_${safeName}_${booking.startDate}_ถึง_${booking.endDate}.doc`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        bookingStartDateInput.addEventListener('change', () => {
+            updateDateLimits();
+            updateTimeLimits();
+        });
+        bookingEndDateInput.addEventListener('change', updateTimeLimits);
+        courtCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', updateCourtSelection));
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            clearError();
+
+            if (bookingStartDateInput.value && bookingEndDateInput.value && bookingEndDateInput.value < bookingStartDateInput.value) {
+                showError('วันที่สิ้นสุดต้องไม่อยู่ก่อนวันที่เริ่มจอง');
+                return;
+            }
+
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const courts = selectedCourts();
+            if (!courts.length) {
+                showError('กรุณาเลือกสนามอย่างน้อย 1 สนาม');
+                return;
+            }
+
+            if (courts.length > MAX_COURTS) {
+                showError(`เลือกสนามได้สูงสุด ${MAX_COURTS} สนาม`);
+                return;
+            }
+
+            const bookingWindow = getBookingWindowForDateRange(bookingStartDateInput.value, bookingEndDateInput.value);
+            const startMinutes = timeToMinutes(startTimeInput.value);
+            const endMinutes = timeToMinutes(endTimeInput.value);
+            const openMinutes = timeToMinutes(bookingWindow.open);
+            const closeMinutes = timeToMinutes(bookingWindow.close);
+
+            if (startMinutes < openMinutes || endMinutes > closeMinutes) {
+                showError(`เวลาที่เลือกอยู่นอกช่วงเวลาทำการ (${bookingWindow.open}–${bookingWindow.close} น.)`);
+                return;
+            }
+
+            if (endMinutes <= startMinutes) {
+                showError('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเล่น');
+                return;
+            }
+
+            const booking = {
+                firstName: document.getElementById('firstName').value.trim(),
+                lastName: document.getElementById('lastName').value.trim(),
+                fullName: `${document.getElementById('firstName').value.trim()} ${document.getElementById('lastName').value.trim()}`,
+                faculty: document.getElementById('bookerFaculty').value.trim(),
+                major: document.getElementById('bookerMajor').value.trim(),
+                phone: document.getElementById('bookerPhone').value.trim(),
+                purpose: document.getElementById('bookingPurpose').value.trim(),
+                date: bookingStartDateInput.value,
+                startDate: bookingStartDateInput.value,
+                endDate: bookingEndDateInput.value,
+                startTime: startTimeInput.value,
+                endTime: endTimeInput.value,
+                courts,
+                durationMinutes: endMinutes - startMinutes,
+                timestamp: new Date().toISOString()
+            };
+
+            const advanceBookings = JSON.parse(localStorage.getItem('advanceBookings')) || [];
+            advanceBookings.push(booking);
+            localStorage.setItem('advanceBookings', JSON.stringify(advanceBookings));
+
+            exportToWord(booking);
+            alert('จองสนามสำเร็จ ระบบกำลังดาวน์โหลดเอกสาร Word');
+            form.reset();
+            updateDateLimits();
+            updateTimeLimits();
+            updateCourtSelection();
+        });
+
+        initTheme();
+        updateDateLimits();
+        updateTimeLimits();
+        updateCourtSelection();
+    </script>
+
+    <style>
+        .field-input {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.625rem;
+            background: #fff;
+            padding: 0.7rem 0.9rem;
+            color: #0f172a;
+            outline: none;
+            transition: border-color 150ms ease, box-shadow 150ms ease;
+        }
+
+        .field-input:focus {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.28);
+        }
+
+        .dark .field-input {
+            border-color: #475569;
+            background: #334155;
+            color: #f8fafc;
+        }
+
+        .court-option {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            min-height: 3rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.625rem;
+            padding: 0.65rem 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 150ms ease, background 150ms ease;
+        }
+
+        .court-option:hover {
+            border-color: #8b5cf6;
+            background: #f5f3ff;
+        }
+
+        .court-option:has(input:checked) {
+            border-color: #8b5cf6;
+            background: #ede9fe;
+        }
+
+        .court-option:has(input:disabled) {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+
+        .court-option input {
+            width: 1rem;
+            height: 1rem;
+            accent-color: #7c3aed;
+        }
+
+        .dark .court-option {
+            border-color: #475569;
+        }
+
+        .dark .court-option:hover,
+        .dark .court-option:has(input:checked) {
+            border-color: #a78bfa;
+            background: rgba(124, 58, 237, 0.2);
+        }
+    </style>
+</body>
+
+</html>

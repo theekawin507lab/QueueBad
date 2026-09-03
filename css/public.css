@@ -1,0 +1,26 @@
+/* =============================================
+   public.css — Style สำหรับหน้า Public Dashboard
+   ============================================= */
+
+@keyframes ping-slow {
+    75%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+.animate-ping-slow {
+    animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.timer-font {
+    font-variant-numeric: tabular-nums;
+    font-family: monospace;
+}
+
+/* ซ่อน Scrollbar แต่ยังเลื่อนได้ */
+.hide-scrollbar::-webkit-scrollbar { 
+    display: none; 
+}
+
+.hide-scrollbar { 
+    -ms-overflow-style: none; 
+    scrollbar-width: none; 
+}

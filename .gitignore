@@ -1,0 +1,9 @@
+# Dependencies & IDE
+.agents/
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.log
