@@ -731,15 +731,10 @@ function initProfileUI() {
             } catch (e) { }
         }
 
-        // แสดง avatar: รูปภาพ > avatar emoji > ตัวอักษรตัวแรก
-        let avatarDisplay = '';
-        if (currentUserProfile && currentUserProfile.photoURL) {
-            avatarDisplay = `<img src="${currentUserProfile.photoURL}" class="w-full h-full object-cover rounded-full" alt="avatar">`;
-        } else if (currentUserProfile && currentUserProfile.avatarEmoji) {
-            avatarDisplay = currentUserProfile.avatarEmoji;
-        } else {
-            avatarDisplay = (nickname || 'P').charAt(0).toUpperCase();
-        }
+        // แสดง avatar: avatarEmoji > ตัวอักษรตัวแรก
+        const avatarDisplay = (currentUserProfile && currentUserProfile.avatarEmoji) 
+            ? currentUserProfile.avatarEmoji 
+            : (nickname || 'P').charAt(0).toUpperCase();
         authNavContainer.innerHTML = `
             <button onclick="openProfileDrawer()"
                 class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white pl-1 pr-3 py-1 rounded-full text-xs font-bold shadow transition border border-blue-400/40">
@@ -788,14 +783,12 @@ function populateProfileDrawer(nickname, profile) {
     const facEl = document.getElementById('profileFaculty');
     const majEl = document.getElementById('profileMajor');
 
-    // แสดง avatar: photoURL > avatarEmoji > ตัวอักษรตัวแรก
+    // แสดง avatar: avatarEmoji > ตัวอักษรตัวแรก
     if (avatar) {
-        if (profile.photoURL) {
-            avatar.innerHTML = `<img src="${profile.photoURL}" class="w-full h-full object-cover rounded-full" alt="Avatar">`;
-        } else if (profile.avatarEmoji) {
-            avatar.innerHTML = profile.avatarEmoji;
+        if (profile.avatarEmoji) {
+            avatar.textContent = profile.avatarEmoji;
         } else {
-            avatar.innerHTML = (nickname || 'P').charAt(0).toUpperCase();
+            avatar.textContent = (nickname || 'P').charAt(0).toUpperCase();
         }
     }
     if (nickEl) nickEl.textContent = nickname || '-';
@@ -1437,7 +1430,7 @@ async function logoutPlayer() {
 }
 
 // =============================================
-// ระบบ Avatar Customization (Emoji / Photo Upload)
+// ระบบ Avatar Customization (Emoji Avatar Picker)
 // =============================================
 const AVATAR_EMOJIS = [
     '🏸', '🎮', '⚡', '🔥', '🌟', '🚀', '🦁', '🐯',
@@ -1461,12 +1454,11 @@ function openAvatarPicker() {
     panel.className = 'mt-3 p-3.5 bg-white dark:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xl space-y-3';
     panel.innerHTML = `
         <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-600 pb-2">
-            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">เลือกรูปโปรไฟล์ของคุณ</span>
+            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">เลือก Emoji โปรไฟล์ของคุณ</span>
             <button onclick="document.getElementById('avatarPickerPanel').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
         </div>
 
         <div>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 font-medium">อิโมจิสำเร็จรูป:</p>
             <div class="grid grid-cols-8 gap-1.5">
                 ${AVATAR_EMOJIS.map(e =>
                     `<button onclick="selectAvatar('${e}')" class="w-8 h-8 text-xl flex items-center justify-center rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition active:scale-90" title="เลือก ${e}">${e}</button>`
@@ -1474,16 +1466,11 @@ function openAvatarPicker() {
             </div>
         </div>
 
-        <div class="pt-2 border-t border-slate-100 dark:border-slate-600 flex gap-2">
-            <button onclick="triggerAvatarUpload()" class="flex-1 py-1.5 px-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition">
-                <span>📷</span>
-                <span>อัปโหลดรูปภาพ</span>
-            </button>
-            <button onclick="resetAvatarToDefault()" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold transition" title="ใช้ตัวอักษรเริ่มต้น">
-                ตัวอักษรเริ่มต้น
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-600">
+            <button onclick="resetAvatarToDefault()" class="w-full py-1.5 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold transition" title="ใช้ตัวอักษรเริ่มต้น">
+                รีเซ็ตเป็นตัวอักษรเริ่มต้น
             </button>
         </div>
-        <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleAvatarFileSelected(event)">
     `;
 
     avatarEl.closest('.text-center').appendChild(panel);
@@ -1526,90 +1513,6 @@ async function selectAvatar(emoji) {
             }, { merge: true });
         } catch (e) {
             console.warn('Could not save avatar emoji:', e);
-        }
-    }
-}
-
-function triggerAvatarUpload() {
-    const input = document.getElementById('avatarFileInput');
-    if (input) input.click();
-}
-
-async function handleAvatarFileSelected(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-        alert('กรุณาเลือกรูปภาพขนาดไม่เกิน 5MB');
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-        const img = new Image();
-        img.onload = async function() {
-            try {
-                const canvas = document.createElement('canvas');
-                const size = 128;
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-
-                // ตัดกึ่งกลางรูปสี่เหลี่ยมจัตุรัส
-                const minDim = Math.min(img.width, img.height);
-                const sx = (img.width - minDim) / 2;
-                const sy = (img.height - minDim) / 2;
-                ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
-
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-                await saveCustomPhoto(dataUrl);
-            } catch (err) {
-                console.error('Image compression error:', err);
-                alert('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ');
-            }
-        };
-        img.src = evt.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-
-async function saveCustomPhoto(dataUrl) {
-    const playerUid = localStorage.getItem('playerUid') || sessionStorage.getItem('playerUid');
-    if (!playerUid) return;
-
-    // อัปเดต UI ทันที
-    const avatarEl = document.getElementById('profileAvatar');
-    if (avatarEl) {
-        avatarEl.innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover rounded-full" alt="Avatar">`;
-    }
-
-    const panel = document.getElementById('avatarPickerPanel');
-    if (panel) panel.classList.add('hidden');
-
-    const raw = localStorage.getItem('playerData') || sessionStorage.getItem('playerData');
-    const pd = raw ? JSON.parse(raw) : {};
-    pd.photoURL = dataUrl;
-    delete pd.avatarEmoji;
-    localStorage.setItem('playerData', JSON.stringify(pd));
-    sessionStorage.setItem('playerData', JSON.stringify(pd));
-    currentUserProfile = pd;
-
-    // อัปเดต Navbar
-    initProfileUI();
-
-    // บันทึกลง Firestore
-    if (db && playerUid) {
-        try {
-            await db.collection('users').doc(playerUid).set({
-                photoURL: dataUrl,
-                avatarEmoji: firebase.firestore.FieldValue.delete()
-            }, { merge: true });
-            await db.collection('players').doc(playerUid).set({
-                photoURL: dataUrl,
-                avatarEmoji: firebase.firestore.FieldValue.delete()
-            }, { merge: true });
-        } catch (e) {
-            console.warn('Could not save photo to Firestore:', e);
         }
     }
 }
