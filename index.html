@@ -95,6 +95,24 @@
             <!-- ฝั่งขวา: กระดานจัดคิว -->
             <div class="w-full lg:w-3/4 flex flex-col gap-6">
 
+                <!-- แผงจัดการสถานะสนาม (สนาม 1 - 4) -->
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-5 rounded-lg shadow-md transition-colors border border-gray-200 dark:border-gray-700">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 mb-3 border-b dark:border-gray-700 gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
+                                <span>🏸</span> จัดการสถานะสนาม (สนาม 1 - 4)
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">(คลิกเพื่อเปิด / ปิดสนามตามกิจกรรม)</span>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                            สถานะจะซิงค์ไปยังหน้า Public และระบบจัดคิวอัตโนมัติ
+                        </div>
+                    </div>
+                    <div id="adminCourtStatusGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
                 <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md transition-colors">
                     <form id="addQueueForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <div class="space-y-1">

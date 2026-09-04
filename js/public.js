@@ -296,6 +296,27 @@ function initFirestoreListeners() {
     }, (error) => {
         console.warn('Firestore Players Listener Error:', error);
     });
+
+    // 3. ดักฟังสถานะสนาม (ว่าง / ไม่ว่าง-สนามปิด) จาก Cloud แบบ Real-time
+    db.collection('courts').doc('status').onSnapshot((doc) => {
+        if (doc.exists) {
+            const data = doc.data();
+            for (let c = 1; c <= TOTAL_COURTS; c++) {
+                if (data[c] !== undefined) {
+                    if (typeof data[c] === 'boolean') {
+                        courtStatus[c] = { isOpen: data[c], reason: '' };
+                    } else {
+                        courtStatus[c] = data[c];
+                    }
+                }
+            }
+            localStorage.setItem('badmintonCourtStatus', JSON.stringify(courtStatus));
+            renderDashboard();
+            updateCqCourtSelect();
+        }
+    }, (error) => {
+        console.warn('Firestore Court Status Listener Error:', error);
+    });
 }
 
 // ดักจับการเปลี่ยนแปลงข้ามแท็บ (กรณีเปิดบนเครื่องเดียวกัน — ไม่อนุญาตให้เรียก initFirestoreListeners ซ้ำ)
@@ -328,6 +349,12 @@ window.addEventListener('storage', function (e) {
         } catch (err) {}
     } else if (e.key === 'badmintonPlayers') {
         renderOnlinePlayers();
+    } else if (e.key === 'badmintonCourtStatus') {
+        try {
+            courtStatus = JSON.parse(e.newValue || '{}');
+            renderDashboard();
+            updateCqCourtSelect();
+        } catch (err) {}
     }
 });
 
@@ -348,6 +375,50 @@ function getActiveMatchForUser(nickname) {
 // และกระดานคิวกลาง (Central Queue)
 // ==========================================
 const TOTAL_COURTS = 4;
+
+// =============================================
+// ระบบสถานะคอร์ท (Court Status: ว่าง / ไม่ว่าง-สนามปิด)
+// =============================================
+let courtStatus = (() => {
+    try {
+        const raw = localStorage.getItem('badmintonCourtStatus');
+        if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return {
+        1: { isOpen: true, reason: '' },
+        2: { isOpen: true, reason: '' },
+        3: { isOpen: true, reason: '' },
+        4: { isOpen: true, reason: '' }
+    };
+})();
+
+function isCourtOpen(courtNum) {
+    const num = parseInt(courtNum);
+    if (!num || !courtStatus[num]) return true;
+    return courtStatus[num].isOpen !== false;
+}
+
+function updateCqCourtSelect() {
+    const cqCourtSelect = document.getElementById('cqCourt');
+    if (!cqCourtSelect) return;
+    const currentVal = cqCourtSelect.value;
+
+    let optionsHtml = `<option value="auto">อัตโนมัติ (ลงคอร์ทแรกที่ว่าง - แนะนำ)</option>`;
+    for (let c = 1; c <= TOTAL_COURTS; c++) {
+        const open = isCourtOpen(c);
+        if (!open) {
+            optionsHtml += `<option value="${c}" class="text-rose-600 font-semibold" disabled>สนาม ${c} (🔴 สนามปิด/ไม่ว่าง)</option>`;
+        } else {
+            optionsHtml += `<option value="${c}">สนาม ${c}</option>`;
+        }
+    }
+    cqCourtSelect.innerHTML = optionsHtml;
+    if (currentVal && isCourtOpen(currentVal)) {
+        cqCourtSelect.value = currentVal;
+    } else {
+        cqCourtSelect.value = 'auto';
+    }
+}
 
 // ฟังก์ชันจัดรูปแบบชื่อผู้เล่นในคิว (ไฮไลต์ชื่อตนเองเป็นสีเขียว + ปรับสีทีม B ให้เป็นสีเดียวกับทีม A)
 function formatPlayerForQueue(name, currentNickname) {
@@ -374,24 +445,32 @@ function renderDashboard() {
 
     // วาดการ์ด 4 สนามคงที่ (สนาม 1 ถึง สนาม 4)
     for (let i = 1; i <= TOTAL_COURTS; i++) {
+        const isAvailableCourt = isCourtOpen(i);
         const courtMatches = matches.filter(m => parseInt(m.court) === i && (m.status === 'PLAYING' || m.status === 'CALLING'));
         const playingMatch = courtMatches.find(m => m.status === 'PLAYING');
         const callingMatch = courtMatches.find(m => m.status === 'CALLING');
 
-        let statusLabel, statusClass;
-        if (playingMatch) {
+        let statusLabel, statusClass, cardBorderClass;
+        if (!isAvailableCourt && !playingMatch && !callingMatch) {
+            statusLabel = 'ไม่ว่าง (สนามปิด)';
+            statusClass = 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-400 border border-rose-200 dark:border-rose-800';
+            cardBorderClass = 'border-rose-300 dark:border-rose-800/80';
+        } else if (playingMatch) {
             statusLabel = 'กำลังแข่งขัน';
             statusClass = 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400';
+            cardBorderClass = 'border-slate-200/90 dark:border-slate-700/90';
         } else if (callingMatch) {
             statusLabel = 'กำลังเรียกคิว';
             statusClass = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400';
+            cardBorderClass = 'border-slate-200/90 dark:border-slate-700/90';
         } else {
             statusLabel = 'สนามว่าง';
             statusClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400';
+            cardBorderClass = 'border-slate-200/90 dark:border-slate-700/90';
         }
 
         let cardHtml = `
-            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-2 border-slate-200/90 dark:border-slate-700/90 overflow-hidden flex flex-col justify-between h-full transform transition hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-2 ${cardBorderClass} overflow-hidden flex flex-col justify-between h-full transform transition hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600">
                 <!-- หัวการ์ด (Header สนาม) -->
                 <div class="bg-slate-100 dark:bg-slate-700/50 py-3 px-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                     <div class="flex items-center gap-2">
@@ -492,8 +571,20 @@ function renderDashboard() {
                     </div>
                 </div>
             `;
+        } else if (!isAvailableCourt) {
+            // สนามไม่ว่าง (สนามปิด) - โทนสีแดง
+            cardHtml += `
+                <div class="flex flex-col items-center justify-center py-8 px-4 bg-rose-50/70 dark:bg-rose-950/25 rounded-xl border-2 border-dashed border-rose-300 dark:border-rose-900/60 text-center">
+                    <div class="w-9 h-9 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 flex items-center justify-center font-black text-xs mb-2 shadow-sm">
+                        ปิด
+                    </div>
+                    <p class="text-rose-700 dark:text-rose-400 text-sm font-bold">ไม่ว่าง (สนามปิด)</p>
+                    <p class="text-rose-600 dark:text-rose-400/80 text-xs mt-1">มีการขอใช้สนาม หรือจัดกิจกรรม</p>
+                    <p class="text-slate-400 dark:text-slate-500 text-[11px] mt-0.5 font-medium">งดให้บริการจัดคิวชั่วคราว</p>
+                </div>
+            `;
         } else {
-            // สนามว่าง
+            // สนามว่าง (เปิดใช้งาน) - โทนสีเขียว
             cardHtml += `
                 <div class="flex flex-col items-center justify-center py-8 px-4 bg-emerald-50/40 dark:bg-emerald-950/20 rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-900/50 text-center">
                     <div class="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xs mb-2">ว่าง</div>
@@ -979,6 +1070,7 @@ function openCreateQueueModal() {
 
     // โหลดรายชื่อเพื่อนที่เช็คชื่อมาสนามแล้วใส่ใน dropdowns
     populatePlayerDropdowns(nickname);
+    updateCqCourtSelect();
 
     if (modal) modal.classList.remove('hidden');
 }
@@ -1060,20 +1152,27 @@ async function submitCreateQueue(e) {
         let initialCallingStartTime = null;
 
         if (court === 'auto' || !court) {
-            // ถ้าเลือกอัตโนมัติ และผู้เล่นครบ 4 คนแล้ว ให้เช็คว่ามีสนามใดใน 1-4 ว่างหรือไม่
+            // ถ้าเลือกอัตโนมัติ และผู้เล่นครบ 4 คนแล้ว ให้เช็คว่ามีสนามใดใน 1-4 ว่างหรือไม่ (ต้องเป็นสนามที่เปิดใช้งานด้วย)
             if (selected.length === 4) {
                 for (let c = 1; c <= TOTAL_COURTS; c++) {
-                    const isBusy = matches.some(m => parseInt(m.court) === c && (m.status === 'PLAYING' || m.status === 'CALLING'));
-                    if (!isBusy) {
-                        assignedCourt = c;
-                        initialStatus = 'CALLING';
-                        initialCallingStartTime = firebase.firestore.FieldValue.serverTimestamp();
-                        break;
+                    if (isCourtOpen(c)) {
+                        const isBusy = matches.some(m => parseInt(m.court) === c && (m.status === 'PLAYING' || m.status === 'CALLING'));
+                        if (!isBusy) {
+                            assignedCourt = c;
+                            initialStatus = 'CALLING';
+                            initialCallingStartTime = firebase.firestore.FieldValue.serverTimestamp();
+                            break;
+                        }
                     }
                 }
             }
         } else {
-            assignedCourt = parseInt(court);
+            const chosen = parseInt(court);
+            if (!isCourtOpen(chosen)) {
+                showCqError(`ขออภัย สนาม ${chosen} ถูกปิดการใช้งานชั่วคราว (ไม่ว่าง - ขอใช้สนาม/จัดกิจกรรม)`);
+                return;
+            }
+            assignedCourt = chosen;
         }
 
         const newMatch = {
@@ -1214,15 +1313,17 @@ async function submitJoinSlot(team, slotIdx) {
         updatePayload[team] = teamArray;
 
         // ถ้าครบ 4 คนแล้ว และคิวยังไม่มีสนาม (รอจัดสนามอัตโนมัติ)
-        // ตรวจสอบว่ามีสนาม 1-4 ว่างหรือไม่
+        // ตรวจสอบว่ามีสนาม 1-4 ที่เปิดใช้งานและว่างหรือไม่
         if (allFour.length === 4 && (!match.court || match.court === 'auto')) {
             for (let c = 1; c <= TOTAL_COURTS; c++) {
-                const isBusy = matches.some(m => parseInt(m.court) === c && (m.status === 'PLAYING' || m.status === 'CALLING'));
-                if (!isBusy) {
-                    updatePayload.court = c;
-                    updatePayload.status = 'CALLING';
-                    updatePayload.callingStartTime = firebase.firestore.FieldValue.serverTimestamp();
-                    break;
+                if (isCourtOpen(c)) {
+                    const isBusy = matches.some(m => parseInt(m.court) === c && (m.status === 'PLAYING' || m.status === 'CALLING'));
+                    if (!isBusy) {
+                        updatePayload.court = c;
+                        updatePayload.status = 'CALLING';
+                        updatePayload.callingStartTime = firebase.firestore.FieldValue.serverTimestamp();
+                        break;
+                    }
                 }
             }
         }

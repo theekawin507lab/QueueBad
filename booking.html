@@ -126,13 +126,13 @@
                                 สนาม)</span></legend>
                         <div id="courtOptions" class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-4">
                             <label class="court-option"><input class="court-checkbox" type="checkbox"
-                                    value="1"><span>สนาม 1</span></label>
+                                    value="1"><span id="courtOptionText1">สนาม 1</span></label>
                             <label class="court-option"><input class="court-checkbox" type="checkbox"
-                                    value="2"><span>สนาม 2</span></label>
+                                    value="2"><span id="courtOptionText2">สนาม 2</span></label>
                             <label class="court-option"><input class="court-checkbox" type="checkbox"
-                                    value="3"><span>สนาม 3</span></label>
+                                    value="3"><span id="courtOptionText3">สนาม 3</span></label>
                             <label class="court-option"><input class="court-checkbox" type="checkbox"
-                                    value="4"><span>สนาม 4</span></label>
+                                    value="4"><span id="courtOptionText4">สนาม 4</span></label>
                         </div>
                         <p id="courtHint" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
                             กรุณาเลือกสนามอย่างน้อย 1 สนาม</p>
@@ -429,6 +429,26 @@
         updateDateLimits();
         updateTimeLimits();
         updateCourtSelection();
+
+        function syncCourtStatusUI() {
+            try {
+                const raw = localStorage.getItem('badmintonCourtStatus');
+                if (!raw) return;
+                const cs = JSON.parse(raw);
+                [1, 2, 3, 4].forEach(c => {
+                    const el = document.getElementById(`courtOptionText${c}`);
+                    if (el && cs[c] && cs[c].isOpen === false) {
+                        el.innerHTML = `สนาม ${c} <span class="text-[10px] text-rose-500 font-bold ml-1">(ปิดชั่วคราว)</span>`;
+                    } else if (el) {
+                        el.innerHTML = `สนาม ${c}`;
+                    }
+                });
+            } catch (e) {}
+        }
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'badmintonCourtStatus') syncCourtStatusUI();
+        });
+        syncCourtStatusUI();
     </script>
 
     <style>

@@ -29,6 +29,28 @@ let callingTimers = {}; // { matchId: { startTime, intervalId } }
 // =============================================
 let swapTarget = null; // { matchId, team ('A'|'B'), playerIndex (0|1) }
 
+// =============================================
+// ระบบสถานะคอร์ท (Court Status: ว่าง / ไม่ว่าง-สนามปิด)
+// =============================================
+let courtStatus = (() => {
+    try {
+        const raw = localStorage.getItem('badmintonCourtStatus');
+        if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return {
+        1: { isOpen: true, reason: '' },
+        2: { isOpen: true, reason: '' },
+        3: { isOpen: true, reason: '' },
+        4: { isOpen: true, reason: '' }
+    };
+})();
+
+function isCourtOpen(courtNum) {
+    const num = parseInt(courtNum);
+    if (!num || !courtStatus[num]) return true;
+    return courtStatus[num].isOpen !== false;
+}
+
 function displayDate() {
     const dateOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('currentDateDisplay').innerText = new Date().toLocaleDateString('th-TH', dateOpts);
@@ -322,6 +344,7 @@ function loadData() {
         if (m.callingStartTime) m.callingStartTime = new Date(m.callingStartTime);
     });
     renderPlayerList();
+    renderCourtStatusPanel();
     renderTable();
     startLiveTimer();
     renderReports();
@@ -491,6 +514,24 @@ function initAdminFirestore() {
         renderReports();
         updateReportBadge();
     }, (err) => console.warn('Admin reports snapshot error:', err));
+
+    // 4. ดักฟังสถานะสนาม (ว่าง / ไม่ว่าง-สนามปิด) จาก Cloud แบบ Real-time
+    db.collection('courts').doc('status').onSnapshot((doc) => {
+        if (doc.exists) {
+            const data = doc.data();
+            for (let c = 1; c <= 4; c++) {
+                if (data[c] !== undefined) {
+                    if (typeof data[c] === 'boolean') {
+                        courtStatus[c] = { isOpen: data[c], reason: '' };
+                    } else {
+                        courtStatus[c] = data[c];
+                    }
+                }
+            }
+            localStorage.setItem('badmintonCourtStatus', JSON.stringify(courtStatus));
+            renderCourtStatusPanel();
+        }
+    }, (err) => console.warn('Admin court status snapshot error:', err));
 }
 
 // ฟังก์ชันออกจากระบบ Admin
@@ -513,6 +554,122 @@ function logoutAdmin() {
 function isCourtBusy(courtNumber) {
     return matches.some(match => parseInt(match.court) === parseInt(courtNumber) && (match.status === 'PLAYING' || match.status === 'CALLING'));
 }
+
+// =============================================
+// เรนเดอร์แผงจัดการสถานะสนาม (Admin Court Status Panel)
+// =============================================
+function renderCourtStatusPanel() {
+    const container = document.getElementById('adminCourtStatusGrid');
+    if (!container) return;
+
+    let html = '';
+    for (let c = 1; c <= 4; c++) {
+        const open = isCourtOpen(c);
+        const busy = isCourtBusy(c);
+
+        let cardBorder = '';
+        let cardBg = '';
+        let badgeHtml = '';
+        let btnHtml = '';
+
+        if (!open) {
+            // ไม่ว่าง (สนามปิด) - สีแดง
+            cardBorder = 'border-rose-300 dark:border-rose-800 ring-1 ring-rose-200 dark:ring-rose-900/40';
+            cardBg = 'bg-rose-50/70 dark:bg-rose-950/25';
+            badgeHtml = `<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">🔴 ไม่ว่าง (สนามปิด)</span>`;
+            btnHtml = `
+                <button type="button" onclick="toggleCourtStatus(${c})"
+                    class="w-full mt-2.5 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow transition flex items-center justify-center gap-1">
+                    <span>🟢</span> เปิดสนาม (ให้ว่าง)
+                </button>
+            `;
+        } else {
+            // ว่าง (เปิดใช้งาน) - สีเขียว
+            cardBorder = 'border-emerald-200 dark:border-emerald-800/80';
+            cardBg = 'bg-emerald-50/40 dark:bg-emerald-950/15';
+            badgeHtml = busy
+                ? `<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">🟡 แข่งขัน / เรียก</span>`
+                : `<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">🟢 ว่าง (พร้อมรับคิว)</span>`;
+            btnHtml = `
+                <button type="button" onclick="toggleCourtStatus(${c})"
+                    class="w-full mt-2.5 py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 dark:text-rose-300 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 border border-rose-200 dark:border-rose-800">
+                    <span>🔴</span> ปิดสนาม (ไม่ว่าง)
+                </button>
+            `;
+        }
+
+        html += `
+            <div class="p-3.5 rounded-xl border ${cardBorder} ${cardBg} transition-all shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center justify-center text-xs font-bold">${c}</span>
+                            <span class="font-bold text-sm text-gray-800 dark:text-gray-100">สนามที่ ${c}</span>
+                        </div>
+                        ${badgeHtml}
+                    </div>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                        ${!open ? 'มีขอใช้สนาม / จัดกิจกรรม (งดจัดคิว)' : (busy ? 'มีคิวลงสนามแล้ว' : 'พร้อมจัดคิวแข่งขันอัตโนมัติ')}
+                    </p>
+                </div>
+                ${btnHtml}
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+    updateCourtSelectDropdown();
+}
+
+async function toggleCourtStatus(courtNumber) {
+    const c = parseInt(courtNumber);
+    const currentOpen = isCourtOpen(c);
+    const newOpen = !currentOpen;
+
+    courtStatus[c] = {
+        isOpen: newOpen,
+        reason: newOpen ? '' : 'ขอใช้สนาม / ทำกิจกรรม'
+    };
+
+    localStorage.setItem('badmintonCourtStatus', JSON.stringify(courtStatus));
+    renderCourtStatusPanel();
+
+    if (db) {
+        try {
+            await db.collection('courts').doc('status').set(courtStatus, { merge: true });
+        } catch (e) {
+            console.warn('Could not sync court status to Firestore:', e);
+        }
+    }
+
+    // ถ้าเปิดสนามขึ้นมาใหม่ ให้ตรวจดูว่ามีคิวรอที่สามารถเรียกได้หรือไม่
+    if (newOpen && !isCourtBusy(c)) {
+        autoCallNextQueue(c);
+    }
+}
+
+function updateCourtSelectDropdown() {
+    const courtSelect = document.getElementById('court');
+    if (!courtSelect) return;
+    const currentVal = courtSelect.value;
+
+    let optionsHtml = `<option value="auto">อัตโนมัติ (คอร์ทแรกที่ว่าง)</option>`;
+    for (let c = 1; c <= 4; c++) {
+        const open = isCourtOpen(c);
+        if (!open) {
+            optionsHtml += `<option value="${c}" class="text-rose-600 font-semibold" disabled>สนาม ${c} (🔴 ปิดสนาม/ไม่ว่าง)</option>`;
+        } else {
+            optionsHtml += `<option value="${c}">สนาม ${c}</option>`;
+        }
+    }
+    courtSelect.innerHTML = optionsHtml;
+    if (currentVal && isCourtOpen(currentVal)) {
+        courtSelect.value = currentVal;
+    } else {
+        courtSelect.value = 'auto';
+    }
+}
+
 
 document.getElementById('addQueueForm').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -581,11 +738,16 @@ document.getElementById('addQueueForm').addEventListener('submit', function (e) 
     let initialCallingStartTime = null;
 
     if (courtVal !== 'auto' && courtVal) {
-        assignedCourt = parseInt(courtVal);
+        const chosenCourt = parseInt(courtVal);
+        if (!isCourtOpen(chosenCourt)) {
+            alert(`ไม่สามารถจัดคิวลงสนาม ${chosenCourt} ได้ เนื่องจากสนามนี้ถูกปิดการใช้งานชั่วคราว (ไม่ว่าง - ขอใช้สนาม/จัดกิจกรรม)`);
+            return;
+        }
+        assignedCourt = chosenCourt;
     } else {
-        // หาคอร์ทว่างใน 1-4
+        // หาคอร์ทว่างใน 1-4 ที่ "เปิดใช้งาน" (isOpen) และ "ไม่ติดคิว" (!isCourtBusy)
         for (let c = 1; c <= 4; c++) {
-            if (!isCourtBusy(c)) {
+            if (isCourtOpen(c) && !isCourtBusy(c)) {
                 assignedCourt = c;
                 initialStatus = 'CALLING';
                 initialCallingStartTime = new Date();
@@ -683,10 +845,13 @@ function confirmScore(withScore = true) {
 
 function autoCallNextQueue(courtNumber) {
     if (!courtNumber) return;
+    const c = parseInt(courtNumber);
+    // Failsafe: ถ้าสนามนี้ถูกปิด ไม่ดึงคิวลงสนาม
+    if (!isCourtOpen(c)) return;
 
     // 1. หาคิว WAITING ที่เจาะจงสนามนี้ไว้โดยเฉพาะ
     let nextMatch = matches.find(m =>
-        parseInt(m.court) === parseInt(courtNumber) && m.status === 'WAITING'
+        parseInt(m.court) === c && m.status === 'WAITING'
     );
 
     // 2. ถ้าไม่มี ให้หาคิวแรกใน Central Queue ที่ยังไม่มีสนาม (หรือ auto) และมีผู้เล่นพร้อมลง (ตั้งแต่ 2 คนขึ้นไป)
@@ -698,7 +863,7 @@ function autoCallNextQueue(courtNumber) {
     }
 
     if (nextMatch) {
-        nextMatch.court = parseInt(courtNumber);
+        nextMatch.court = c;
         nextMatch.status = 'CALLING';
         nextMatch.callingStartTime = new Date();
         saveData();
@@ -804,6 +969,10 @@ function changeStatus(id, newStatus) {
                 return;
             }
         }
+        if (!isCourtOpen(matches[matchIndex].court)) {
+            alert(`ไม่สามารถลงสนามได้!\nสนาม ${matches[matchIndex].court} ถูกปิดการใช้งานชั่วคราว (ไม่ว่าง - ขอใช้สนาม/จัดกิจกรรม)`);
+            return;
+        }
         if (isCourtBusy(matches[matchIndex].court)) {
             alert('ไม่สามารถลงสนามได้!\nคอร์ทนี้มีคิวอื่นกำลังเล่นอยู่ครับ');
             return;
@@ -855,6 +1024,10 @@ function editCourt(id) {
 
     const parsedCourt = parseInt(trimmed);
     if (parsedCourt >= 1 && parsedCourt <= 4) {
+        if (!isCourtOpen(parsedCourt)) {
+            alert(`ย้ายไม่ได้!\nสนาม ${parsedCourt} ถูกปิดการใช้งานชั่วคราว (ไม่ว่าง - ขอใช้สนาม/จัดกิจกรรม)`);
+            return;
+        }
         if (matches[matchIndex].status === 'PLAYING') {
             const isNewCourtBusy = matches.some(m => String(m.id) !== String(id) && parseInt(m.court) === parsedCourt && m.status === 'PLAYING');
             if (isNewCourtBusy) {
@@ -875,7 +1048,7 @@ function assignCourtToMatch(matchId) {
     if (!match) return;
 
     for (let c = 1; c <= 4; c++) {
-        if (!isCourtBusy(c)) {
+        if (isCourtOpen(c) && !isCourtBusy(c)) {
             match.court = c;
             match.status = 'CALLING';
             match.callingStartTime = new Date();
@@ -886,7 +1059,7 @@ function assignCourtToMatch(matchId) {
             return;
         }
     }
-    alert('ขณะนี้สนาม 1-4 กำลังแข่งขันอยู่ทั้งหมด กรุณารอให้มีสนามแข่งขันเสร็จสิ้นครับ');
+    alert('ขณะนี้ไม่มีสนามที่ว่างและพร้อมใช้งาน (สนามอาจมีการแข่งขันอยู่หรือถูกปิดการใช้งานชั่วคราว) ครับ');
 }
 
 // ฟังก์ชันจัดเรียงหมายเลขคิวใหม่เริ่มต้นจากคิวที่ 1
@@ -1281,6 +1454,12 @@ window.addEventListener('storage', function (e) {
     }
     if (e.key === 'badmintonHistory') {
         renderHistoryPanel();
+    }
+    if (e.key === 'badmintonCourtStatus') {
+        try {
+            courtStatus = JSON.parse(e.newValue || '{}');
+            renderCourtStatusPanel();
+        } catch (err) {}
     }
 });
 
