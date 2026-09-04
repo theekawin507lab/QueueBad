@@ -277,13 +277,13 @@ function renderPlayerList() {
 
     filtered.forEach(p => {
         const div = document.createElement('div');
-        div.className = `flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 border dark:border-gray-600 rounded p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition group ${p.isPresent ? '' : 'opacity-60'}`;
+        div.className = `flex justify-between items-center ${p.isPresent ? 'bg-gray-50 dark:bg-gray-700/50 border dark:border-gray-600' : 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60'} rounded p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition group`;
 
-        const clickAction = p.isPresent ? `selectPlayer('${p.name.replace(/'/g, "\\'")}')` : `alert('ผู้เล่นนี้ยังไม่มา ไม่สามารถลงคิวได้')`;
-        const textStyle = p.isPresent ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500 line-through';
+        const clickAction = p.isPresent ? `selectPlayer('${p.name.replace(/'/g, "\\'")}')` : `alert('ผู้เล่นนี้อยู่ในโหมดพักผ่อน ไม่สามารถลงคิวได้')`;
+        const textStyle = p.isPresent ? 'text-gray-700 dark:text-gray-200' : 'text-red-500 dark:text-red-400';
         const statusBadge = p.isPresent
             ? '<span class="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800">พร้อม</span>'
-            : '<span class="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">ไม่พร้อม</span>';
+            : '<span class="text-xs font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60 px-2 py-0.5 rounded-full border border-red-300 dark:border-red-800">พักผ่อน</span>';
 
         div.innerHTML = `
             <button onclick="togglePresence(${p.originalIndex})" class="mr-2 focus:outline-none" title="คลิกเพื่อเปลี่ยนสถานะความพร้อม">

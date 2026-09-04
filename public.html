@@ -46,7 +46,7 @@
                     <div id="authNavContainer" class="flex items-center gap-1">
                         <!-- Render จาก JS: แสดงปุ่มโปรไฟล์ หรือ ปุ่มเข้าสู่ระบบ -->
                         <a href="login.html"
-                            class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                            class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
                             <span>เข้าสู่ระบบ</span>
                         </a>
                     </div>
@@ -205,8 +205,14 @@
                 <div class="p-6 overflow-y-auto flex-1 space-y-6">
                     <!-- Profile Card -->
                     <div class="text-center p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-800 rounded-2xl border border-blue-100 dark:border-slate-700 shadow-inner">
-                        <div class="w-20 h-20 mx-auto rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-black shadow-md mb-3" id="profileAvatar">
-                            P
+                        <!-- Avatar คลิกได้เพื่อเปลี่ยน -->
+                        <div class="relative inline-block mb-3">
+                            <div class="w-20 h-20 mx-auto rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-black shadow-md cursor-pointer hover:ring-4 hover:ring-blue-300 dark:hover:ring-blue-700 transition-all" id="profileAvatar" onclick="openAvatarPicker()" title="กดเพื่อเปลี่ยน Avatar">
+                                P
+                            </div>
+                            <button onclick="openAvatarPicker()" class="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md text-xs transition" title="เปลี่ยน Avatar">
+                                ✏️
+                            </button>
                         </div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white" id="profileNickname">ชื่อเล่น</h3>
                         <p class="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-0.5" id="profileFullName">ชื่อจริง - นามสกุล</p>

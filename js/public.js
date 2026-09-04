@@ -7,6 +7,148 @@ let matches = [];
 let onlinePlayersList = [];
 let timerInterval = null;
 let currentUserProfile = null;
+
+// =============================================
+// ระบบแจ้งเตือนแบบสั่น (Vibration Notification)
+// =============================================
+let vibrationIntervalId = null;
+let callingAudioContext = null;
+let callingFlashOverlay = null;
+let isCallingNotificationActive = false;
+
+// ตรวจสอบว่า Vibration API รองรับหรือไม่ (Android Chrome: ใช่, iOS Safari: ไม่ใช่)
+const isVibrationSupported = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+
+/**
+ * เริ่มการแจ้งเตือนแบบสั่น (เมื่อถูกเรียกคิว)
+ * - Android: สั่นจริงผ่าน Vibration API
+ * - iOS: เล่นเสียง beep + visual flash เป็น fallback
+ */
+function startCallingVibration() {
+    if (isCallingNotificationActive) return; // ป้องกันเรียกซ้ำ
+    isCallingNotificationActive = true;
+
+    // === Visual: เพิ่ม flash overlay bar ที่ขอบบนจอ ===
+    if (!callingFlashOverlay) {
+        callingFlashOverlay = document.createElement('div');
+        callingFlashOverlay.className = 'calling-flash-overlay';
+        callingFlashOverlay.id = 'callingFlashOverlay';
+        document.body.appendChild(callingFlashOverlay);
+    }
+
+    // === Visual: เพิ่ม pulse animation ให้ banner ===
+    const banner = document.getElementById('myQueueBanner');
+    if (banner) banner.classList.add('banner-calling');
+
+    // === Vibration (Android) หรือ Audio (iOS fallback) ===
+    if (isVibrationSupported) {
+        // Android: สั่นเป็นจังหวะทุก 3 วินาที
+        // Pattern: สั่น 300ms, หยุด 200ms, สั่น 300ms, หยุด 200ms, สั่น 500ms
+        try { navigator.vibrate([300, 200, 300, 200, 500]); } catch (e) {}
+        vibrationIntervalId = setInterval(() => {
+            try { navigator.vibrate([300, 200, 300, 200, 500]); } catch (e) {}
+        }, 3000);
+    } else {
+        // iOS fallback: เล่นเสียง beep สั้นๆ เป็นจังหวะ
+        playCallingBeep();
+        vibrationIntervalId = setInterval(() => {
+            playCallingBeep();
+        }, 4000);
+    }
+
+    console.log('[Notification] เริ่มแจ้งเตือนเรียกคิว (vibration:', isVibrationSupported, ')');
+}
+
+/**
+ * หยุดการแจ้งเตือนทั้งหมด
+ */
+function stopCallingVibration() {
+    if (!isCallingNotificationActive) return;
+    isCallingNotificationActive = false;
+
+    // หยุด vibration interval
+    if (vibrationIntervalId) {
+        clearInterval(vibrationIntervalId);
+        vibrationIntervalId = null;
+    }
+
+    // หยุด vibration ทันที (Android)
+    if (isVibrationSupported) {
+        try { navigator.vibrate(0); } catch (e) {}
+    }
+
+    // ลบ flash overlay
+    if (callingFlashOverlay) {
+        callingFlashOverlay.remove();
+        callingFlashOverlay = null;
+    }
+
+    // ลบ pulse animation จาก banner
+    const banner = document.getElementById('myQueueBanner');
+    if (banner) banner.classList.remove('banner-calling');
+
+    // ปิด AudioContext
+    if (callingAudioContext) {
+        try { callingAudioContext.close(); } catch (e) {}
+        callingAudioContext = null;
+    }
+
+    console.log('[Notification] หยุดแจ้งเตือนเรียกคิว');
+}
+
+/**
+ * เล่นเสียง beep สั้นๆ สำหรับ iOS fallback
+ * ใช้ Web Audio API เพื่อสร้างเสียง sine wave
+ */
+function playCallingBeep() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+
+        // สร้าง AudioContext ใหม่ทุกครั้ง (iOS ต้องการ user gesture สำหรับ AudioContext แรก)
+        const ctx = new AudioContext();
+
+        // Beep 1: สูง (880Hz)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.value = 880;
+        gain1.gain.value = 0.3;
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(ctx.currentTime);
+        osc1.stop(ctx.currentTime + 0.15);
+
+        // Beep 2: สูงกว่า (1100Hz) หลัง 0.2 วินาที
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.value = 1100;
+        gain2.gain.value = 0.3;
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(ctx.currentTime + 0.2);
+        osc2.stop(ctx.currentTime + 0.35);
+
+        // Beep 3: สูงสุด (1320Hz) หลัง 0.4 วินาที
+        const osc3 = ctx.createOscillator();
+        const gain3 = ctx.createGain();
+        osc3.type = 'sine';
+        osc3.frequency.value = 1320;
+        gain3.gain.value = 0.25;
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.start(ctx.currentTime + 0.4);
+        osc3.stop(ctx.currentTime + 0.6);
+
+        // ปิด context หลัง beep จบ
+        setTimeout(() => {
+            try { ctx.close(); } catch (e) {}
+        }, 1000);
+    } catch (e) {
+        console.warn('[Notification] Audio beep error:', e);
+    }
+}
 let currentJoiningMatchId = null;
 
 // ซิงค์เซสชันจาก localStorage เข้าสู่ sessionStorage อัตโนมัติ เพื่อรักษาเซสชันเมื่อเปิดแท็บใหม่หรือรีเฟรช
@@ -166,7 +308,7 @@ function formatPlayerForQueue(name, currentNickname) {
     const cleanName = name.trim();
     const isMe = currentNickname && (cleanName.toLowerCase() === currentNickname.trim().toLowerCase());
     if (isMe) {
-        return `<span class="text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-50 dark:bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 shadow-sm inline-block">👤 ${cleanName} (คุณ)</span>`;
+        return `<span class="text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-50 dark:bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 shadow-sm inline-block">${cleanName} (คุณ)</span>`;
     }
     return `<span class="text-blue-600 dark:text-blue-400 font-bold">${cleanName}</span>`;
 }
@@ -512,10 +654,19 @@ function initProfileUI() {
             } catch (e) { }
         }
 
+        // แสดง avatar: รูปภาพ > avatar emoji > ตัวอักษรตัวแรก
+        let avatarDisplay = '';
+        if (currentUserProfile && currentUserProfile.photoURL) {
+            avatarDisplay = `<img src="${currentUserProfile.photoURL}" class="w-full h-full object-cover rounded-full" alt="avatar">`;
+        } else if (currentUserProfile && currentUserProfile.avatarEmoji) {
+            avatarDisplay = currentUserProfile.avatarEmoji;
+        } else {
+            avatarDisplay = (nickname || 'P').charAt(0).toUpperCase();
+        }
         authNavContainer.innerHTML = `
             <button onclick="openProfileDrawer()"
-                class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow transition border border-blue-400/40">
-                <span>👤</span>
+                class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white pl-1 pr-3 py-1 rounded-full text-xs font-bold shadow transition border border-blue-400/40">
+                <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs leading-none overflow-hidden">${avatarDisplay}</span>
                 <span class="truncate max-w-[100px]">${nickname}</span>
             </button>
         `;
@@ -539,8 +690,7 @@ function initProfileUI() {
     } else {
         authNavContainer.innerHTML = `
             <a href="login.html"
-                class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1">
-                <span>👤</span>
+                class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center">
                 <span>เข้าสู่ระบบ / ลงทะเบียน</span>
             </a>
         `;
@@ -561,7 +711,16 @@ function populateProfileDrawer(nickname, profile) {
     const facEl = document.getElementById('profileFaculty');
     const majEl = document.getElementById('profileMajor');
 
-    if (avatar) avatar.textContent = (nickname || 'P').charAt(0).toUpperCase();
+    // แสดง avatar: photoURL > avatarEmoji > ตัวอักษรตัวแรก
+    if (avatar) {
+        if (profile.photoURL) {
+            avatar.innerHTML = `<img src="${profile.photoURL}" class="w-full h-full object-cover rounded-full" alt="Avatar">`;
+        } else if (profile.avatarEmoji) {
+            avatar.innerHTML = profile.avatarEmoji;
+        } else {
+            avatar.innerHTML = (nickname || 'P').charAt(0).toUpperCase();
+        }
+    }
     if (nickEl) nickEl.textContent = nickname || '-';
     if (fullEl) fullEl.textContent = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'ผู้เล่นทั่วไป';
     if (roleEl) roleEl.textContent = profile.userStatus || 'ผู้เล่นทั่วไป';
@@ -666,12 +825,18 @@ function checkMyQueueStatus() {
         if (activeMatch.status === 'PLAYING') {
             statusDesc = `กำลังแข่งขันอยู่ที่ ${courtDesc} (คิวที่ ${activeMatch.id})`;
             badgeColor = 'text-green-300';
+            // === หยุดแจ้งเตือนเมื่อเริ่มเล่น ===
+            stopCallingVibration();
         } else if (activeMatch.status === 'CALLING') {
             statusDesc = `ถึงคิวแล้ว! กรุณาลง${courtDesc} ทันที (คิวที่ ${activeMatch.id})`;
             badgeColor = 'text-amber-300 font-bold';
+            // === เริ่มแจ้งเตือนแบบสั่นเมื่อถูกเรียกคิว ===
+            startCallingVibration();
         } else {
             statusDesc = `อยู่ในคิวรอลงสนาม: ${courtDesc} (คิวที่ ${activeMatch.id})`;
             badgeColor = 'text-blue-200';
+            // === หยุดแจ้งเตือนเมื่อยังรอคิวปกติ ===
+            stopCallingVibration();
         }
 
         if (statusSpan) statusSpan.innerHTML = `<span class="${badgeColor}">${statusDesc}</span>`;
@@ -704,7 +869,8 @@ function checkMyQueueStatus() {
             `;
         }
     } else {
-        // ยังไม่มีคิว
+        // ยังไม่มีคิว — หยุดแจ้งเตือนทั้งหมด
+        stopCallingVibration();
         myQueueBanner.classList.add('hidden');
         if (bannerActionContainer) bannerActionContainer.innerHTML = '';
         if (profileQueueBox) {
@@ -1114,8 +1280,66 @@ function closeProfileDrawer() {
     }
 }
 
-function logoutPlayer() {
+async function logoutPlayer() {
     if (confirm('ต้องการออกจากระบบโปรไฟล์หรือไม่?')) {
+        const playerUid = localStorage.getItem('playerUid') || sessionStorage.getItem('playerUid');
+        const playerNickname = localStorage.getItem('playerNickname') || sessionStorage.getItem('playerNickname');
+
+        // 1. นำออกจาก onlinePlayersList ทันทีบนหน้าจอ เพื่อไม่ให้มีชื่อค้างอยู่
+        if (playerUid || playerNickname) {
+            onlinePlayersList = onlinePlayersList.filter(p => {
+                const matchUid = playerUid && p.uid === playerUid;
+                const matchName = playerNickname && p.name && (p.name.trim().toLowerCase() === playerNickname.trim().toLowerCase());
+                return !matchUid && !matchName;
+            });
+            renderOnlinePlayers(onlinePlayersList);
+        }
+
+        // 2. แจ้ง Firestore: ตั้ง isPresent: false ทันที เพื่อให้ Real-time listener ทั่วระบบตัดชื่อออก
+        if (db) {
+            try {
+                if (playerUid) {
+                    await db.collection('players').doc(playerUid).set({
+                        isPresent: false,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                }
+                if (playerNickname) {
+                    const snap = await db.collection('players').where('name', '==', playerNickname).get();
+                    if (!snap.empty) {
+                        const batch = db.batch();
+                        snap.forEach(doc => {
+                            batch.set(doc.ref, {
+                                isPresent: false,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true });
+                        });
+                        await batch.commit().catch(() => {});
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not set isPresent false on logout:', e);
+            }
+        }
+
+        // 3. หยุดการแจ้งเตือนและการสั่นทั้งหมด
+        stopCallingVibration();
+
+        // 4. ล้างแคชใน local badmintonPlayers บนเครื่องนี้
+        try {
+            const rawPlayers = JSON.parse(localStorage.getItem('badmintonPlayers')) || [];
+            const updated = rawPlayers.map(p => {
+                const name = typeof p === 'string' ? p : (p && p.name);
+                if (name === playerNickname || (p && p.uid === playerUid)) {
+                    if (typeof p === 'object') return { ...p, isPresent: false };
+                    return { name: p, isPresent: false };
+                }
+                return p;
+            });
+            localStorage.setItem('badmintonPlayers', JSON.stringify(updated));
+        } catch (e) {}
+
+        // 5. ล้าง Session & LocalStorage ของผู้เล่น
         localStorage.removeItem('isPlayerLoggedIn');
         localStorage.removeItem('playerUid');
         localStorage.removeItem('playerNickname');
@@ -1132,6 +1356,222 @@ function logoutPlayer() {
         closeProfileDrawer();
         initProfileUI();
         alert('ออกจากระบบเรียบร้อยแล้ว');
+    }
+}
+
+// =============================================
+// ระบบ Avatar Customization (Emoji / Photo Upload)
+// =============================================
+const AVATAR_EMOJIS = [
+    '🏸', '🎮', '⚡', '🔥', '🌟', '🚀', '🦁', '🐯',
+    '🦅', '🦊', '🐺', '🐉', '💫', '🌈', '🎯', '🏆',
+    '💪', '😎', '🥷', '🤺', '🎲', '🎸', '🌙', '☀️'
+];
+
+function openAvatarPicker() {
+    const pickerEl = document.getElementById('avatarPickerPanel');
+    if (pickerEl) {
+        pickerEl.classList.toggle('hidden');
+        return;
+    }
+
+    // สร้าง picker panel ครั้งแรก
+    const avatarEl = document.getElementById('profileAvatar');
+    if (!avatarEl) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'avatarPickerPanel';
+    panel.className = 'mt-3 p-3.5 bg-white dark:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xl space-y-3';
+    panel.innerHTML = `
+        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-600 pb-2">
+            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">เลือกรูปโปรไฟล์ของคุณ</span>
+            <button onclick="document.getElementById('avatarPickerPanel').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
+        </div>
+
+        <div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 font-medium">อิโมจิสำเร็จรูป:</p>
+            <div class="grid grid-cols-8 gap-1.5">
+                ${AVATAR_EMOJIS.map(e =>
+                    `<button onclick="selectAvatar('${e}')" class="w-8 h-8 text-xl flex items-center justify-center rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition active:scale-90" title="เลือก ${e}">${e}</button>`
+                ).join('')}
+            </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-600 flex gap-2">
+            <button onclick="triggerAvatarUpload()" class="flex-1 py-1.5 px-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition">
+                <span>📷</span>
+                <span>อัปโหลดรูปภาพ</span>
+            </button>
+            <button onclick="resetAvatarToDefault()" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold transition" title="ใช้ตัวอักษรเริ่มต้น">
+                ตัวอักษรเริ่มต้น
+            </button>
+        </div>
+        <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleAvatarFileSelected(event)">
+    `;
+
+    avatarEl.closest('.text-center').appendChild(panel);
+}
+
+async function selectAvatar(emoji) {
+    const playerUid = localStorage.getItem('playerUid') || sessionStorage.getItem('playerUid');
+    if (!playerUid) return;
+
+    // อัปเดต UI ทันที
+    const avatarEl = document.getElementById('profileAvatar');
+    if (avatarEl) avatarEl.textContent = emoji;
+
+    // ซ่อน picker
+    const panel = document.getElementById('avatarPickerPanel');
+    if (panel) panel.classList.add('hidden');
+
+    // อัปเดต localStorage
+    const raw = localStorage.getItem('playerData') || sessionStorage.getItem('playerData');
+    const pd = raw ? JSON.parse(raw) : {};
+    pd.avatarEmoji = emoji;
+    delete pd.photoURL;
+    localStorage.setItem('playerData', JSON.stringify(pd));
+    sessionStorage.setItem('playerData', JSON.stringify(pd));
+    currentUserProfile = pd;
+
+    // อัปเดต Navbar
+    initProfileUI();
+
+    // บันทึกลง Firestore
+    if (db && playerUid) {
+        try {
+            await db.collection('users').doc(playerUid).set({ 
+                avatarEmoji: emoji, 
+                photoURL: firebase.firestore.FieldValue.delete() 
+            }, { merge: true });
+            await db.collection('players').doc(playerUid).set({ 
+                avatarEmoji: emoji, 
+                photoURL: firebase.firestore.FieldValue.delete() 
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Could not save avatar emoji:', e);
+        }
+    }
+}
+
+function triggerAvatarUpload() {
+    const input = document.getElementById('avatarFileInput');
+    if (input) input.click();
+}
+
+async function handleAvatarFileSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert('กรุณาเลือกรูปภาพขนาดไม่เกิน 5MB');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        const img = new Image();
+        img.onload = async function() {
+            try {
+                const canvas = document.createElement('canvas');
+                const size = 128;
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+
+                // ตัดกึ่งกลางรูปสี่เหลี่ยมจัตุรัส
+                const minDim = Math.min(img.width, img.height);
+                const sx = (img.width - minDim) / 2;
+                const sy = (img.height - minDim) / 2;
+                ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                await saveCustomPhoto(dataUrl);
+            } catch (err) {
+                console.error('Image compression error:', err);
+                alert('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ');
+            }
+        };
+        img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+async function saveCustomPhoto(dataUrl) {
+    const playerUid = localStorage.getItem('playerUid') || sessionStorage.getItem('playerUid');
+    if (!playerUid) return;
+
+    // อัปเดต UI ทันที
+    const avatarEl = document.getElementById('profileAvatar');
+    if (avatarEl) {
+        avatarEl.innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover rounded-full" alt="Avatar">`;
+    }
+
+    const panel = document.getElementById('avatarPickerPanel');
+    if (panel) panel.classList.add('hidden');
+
+    const raw = localStorage.getItem('playerData') || sessionStorage.getItem('playerData');
+    const pd = raw ? JSON.parse(raw) : {};
+    pd.photoURL = dataUrl;
+    delete pd.avatarEmoji;
+    localStorage.setItem('playerData', JSON.stringify(pd));
+    sessionStorage.setItem('playerData', JSON.stringify(pd));
+    currentUserProfile = pd;
+
+    // อัปเดต Navbar
+    initProfileUI();
+
+    // บันทึกลง Firestore
+    if (db && playerUid) {
+        try {
+            await db.collection('users').doc(playerUid).set({
+                photoURL: dataUrl,
+                avatarEmoji: firebase.firestore.FieldValue.delete()
+            }, { merge: true });
+            await db.collection('players').doc(playerUid).set({
+                photoURL: dataUrl,
+                avatarEmoji: firebase.firestore.FieldValue.delete()
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Could not save photo to Firestore:', e);
+        }
+    }
+}
+
+async function resetAvatarToDefault() {
+    const playerUid = localStorage.getItem('playerUid') || sessionStorage.getItem('playerUid');
+    const nickname = localStorage.getItem('playerNickname') || sessionStorage.getItem('playerNickname') || 'P';
+    const initial = nickname.charAt(0).toUpperCase();
+
+    const avatarEl = document.getElementById('profileAvatar');
+    if (avatarEl) avatarEl.textContent = initial;
+
+    const panel = document.getElementById('avatarPickerPanel');
+    if (panel) panel.classList.add('hidden');
+
+    const raw = localStorage.getItem('playerData') || sessionStorage.getItem('playerData');
+    const pd = raw ? JSON.parse(raw) : {};
+    delete pd.photoURL;
+    delete pd.avatarEmoji;
+    localStorage.setItem('playerData', JSON.stringify(pd));
+    sessionStorage.setItem('playerData', JSON.stringify(pd));
+    currentUserProfile = pd;
+
+    // อัปเดต Navbar
+    initProfileUI();
+
+    if (db && playerUid) {
+        try {
+            await db.collection('users').doc(playerUid).update({
+                photoURL: firebase.firestore.FieldValue.delete(),
+                avatarEmoji: firebase.firestore.FieldValue.delete()
+            });
+            await db.collection('players').doc(playerUid).update({
+                photoURL: firebase.firestore.FieldValue.delete(),
+                avatarEmoji: firebase.firestore.FieldValue.delete()
+            });
+        } catch (e) {
+            console.warn('Could not reset avatar:', e);
+        }
     }
 }
 

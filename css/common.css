@@ -165,3 +165,45 @@
     padding: 0 4px;
     line-height: 1;
 }
+
+/* =============================================
+   Banner Calling Pulse Animation
+   (แจ้งเตือนเมื่อถูกเรียกคิว)
+   ============================================= */
+@keyframes banner-calling-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 20px 8px rgba(245, 158, 11, 0.3);
+        transform: scale(1.02);
+    }
+}
+
+.banner-calling {
+    animation: banner-calling-pulse 1s ease-in-out infinite;
+}
+
+/* Visual flash overlay สำหรับ iOS fallback */
+@keyframes calling-flash {
+    0%, 100% {
+        opacity: 0;
+    }
+    25%, 75% {
+        opacity: 1;
+    }
+}
+
+.calling-flash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #f59e0b, #ef4444, #f59e0b);
+    z-index: 9999;
+    animation: calling-flash 1.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
