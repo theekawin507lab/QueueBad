@@ -213,11 +213,17 @@ function formatTimeSafe(dateVal) {
 // =============================================
 // ระบบ Firebase Firestore Real-time Listeners
 // =============================================
+let isFirestoreInitialized = false;
+let lastMatchesSyncHash = '';
+let lastPlayersSyncHash = '';
+
 function initFirestoreListeners() {
+    if (isFirestoreInitialized) return;
     if (!db) {
         console.warn('Firebase DB ยังไม่พร้อมใช้งาน ใช้โหมด LocalStorage');
         return;
     }
+    isFirestoreInitialized = true;
 
     const cloudBadge = document.getElementById('cloudSyncBadge');
     if (cloudBadge) cloudBadge.classList.remove('hidden');
@@ -236,10 +242,22 @@ function initFirestoreListeners() {
         });
 
         cloudMatches.sort((a, b) => (parseInt(a.id) || 0) - (parseInt(b.id) || 0));
-        matches = cloudMatches;
-        localStorage.setItem('badmintonMatches', JSON.stringify(matches));
-        renderDashboard();
-        checkMyQueueStatus();
+
+        // ตรวจสอบว่าข้อมูลเปลี่ยนจริงหรือไม่ก่อน re-render เพื่อป้องกันการกระพริบ
+        const syncHash = JSON.stringify(cloudMatches.map(m => ({
+            id: m.id, court: m.court, status: m.status,
+            teamA: m.teamA, teamB: m.teamB,
+            st: m.startTime ? m.startTime.getTime() : 0,
+            cst: m.callingStartTime ? m.callingStartTime.getTime() : 0
+        })));
+
+        if (syncHash !== lastMatchesSyncHash) {
+            lastMatchesSyncHash = syncHash;
+            matches = cloudMatches;
+            localStorage.setItem('badmintonMatches', JSON.stringify(matches));
+            renderDashboard();
+            checkMyQueueStatus();
+        }
     }, (error) => {
         console.warn('Firestore Matches Listener Error:', error);
     });
@@ -267,18 +285,49 @@ function initFirestoreListeners() {
         });
 
         cloudPlayers.sort((a, b) => a.name.localeCompare(b.name));
-        onlinePlayersList = cloudPlayers;
-        renderOnlinePlayers(cloudPlayers);
-        updateSelfPresenceUI();
+
+        const playersHash = JSON.stringify(cloudPlayers.map(p => ({ n: p.name, pr: p.isPresent, fn: p.fullName })));
+        if (playersHash !== lastPlayersSyncHash) {
+            lastPlayersSyncHash = playersHash;
+            onlinePlayersList = cloudPlayers;
+            renderOnlinePlayers(cloudPlayers);
+            updateSelfPresenceUI();
+        }
     }, (error) => {
         console.warn('Firestore Players Listener Error:', error);
     });
 }
 
-// ดักจับการเปลี่ยนแปลงข้ามแท็บ (กรณีเปิดบนเครื่องเดียวกัน)
+// ดักจับการเปลี่ยนแปลงข้ามแท็บ (กรณีเปิดบนเครื่องเดียวกัน — ไม่อนุญาตให้เรียก initFirestoreListeners ซ้ำ)
 window.addEventListener('storage', function (e) {
-    if (e.key === 'badmintonMatches' || e.key === 'badmintonPlayers') {
-        loadData();
+    if (e.key === 'badmintonMatches') {
+        try {
+            const parsed = JSON.parse(e.newValue || '[]');
+            parsed.forEach(m => {
+                if (m.startTime) {
+                    const d = new Date(m.startTime);
+                    m.startTime = isNaN(d.getTime()) ? null : d;
+                }
+                if (m.callingStartTime) {
+                    const d = new Date(m.callingStartTime);
+                    m.callingStartTime = isNaN(d.getTime()) ? null : d;
+                }
+            });
+            const syncHash = JSON.stringify(parsed.map(m => ({
+                id: m.id, court: m.court, status: m.status,
+                teamA: m.teamA, teamB: m.teamB,
+                st: m.startTime ? m.startTime.getTime() : 0,
+                cst: m.callingStartTime ? m.callingStartTime.getTime() : 0
+            })));
+            if (syncHash !== lastMatchesSyncHash) {
+                lastMatchesSyncHash = syncHash;
+                matches = parsed;
+                renderDashboard();
+                checkMyQueueStatus();
+            }
+        } catch (err) {}
+    } else if (e.key === 'badmintonPlayers') {
+        renderOnlinePlayers();
     }
 });
 
@@ -316,11 +365,12 @@ function formatPlayerForQueue(name, currentNickname) {
 function renderDashboard() {
     const dashboard = document.getElementById('courtsDashboard');
     if (!dashboard) return;
-    dashboard.innerHTML = '';
 
     const CALLING_TIMEOUT = 90;
     const currentNickname = sessionStorage.getItem('playerNickname') || localStorage.getItem('playerNickname') || '';
     const userActiveMatch = getActiveMatchForUser(currentNickname);
+
+    let fullDashboardHtml = '';
 
     // วาดการ์ด 4 สนามคงที่ (สนาม 1 ถึง สนาม 4)
     for (let i = 1; i <= TOTAL_COURTS; i++) {
@@ -363,16 +413,26 @@ function renderDashboard() {
             const pTeamB0 = (playingMatch.teamB && playingMatch.teamB[0]) || '(ว่าง)';
             const pTeamB1 = (playingMatch.teamB && playingMatch.teamB[1]) || '(ว่าง)';
 
+            // คำนวณเวลาแข่งปัจจุบันทันที ไม่แสดง 00:00 หลอกตา
+            let currentTimerText = '00:00';
+            if (playingMatch.startTime) {
+                const sDate = playingMatch.startTime instanceof Date ? playingMatch.startTime : new Date(playingMatch.startTime);
+                if (!isNaN(sDate.getTime())) {
+                    const diff = Math.max(0, Math.floor((new Date() - sDate) / 1000));
+                    currentTimerText = `${Math.floor(diff / 60).toString().padStart(2, '0')}:${(diff % 60).toString().padStart(2, '0')}`;
+                }
+            }
+
             cardHtml += `
                 <div class="relative bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-800 rounded-xl p-4 border border-blue-100 dark:border-slate-600 shadow-inner">
                     <span class="absolute top-3 right-3 flex h-3 w-3">
-                        <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60"></span>
                         <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
                     </span>
                     
                     <div class="text-center mb-3">
                         <div class="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1 tracking-wide">กำลังแข่งขัน (คิวที่ ${playingMatch.id})</div>
-                        <div class="text-xl font-black text-slate-800 dark:text-white timer-font bg-white dark:bg-slate-900 inline-block px-3 py-1 rounded-lg shadow-sm" id="timer-${playingMatch.id}">00:00</div>
+                        <div class="text-xl font-black text-slate-800 dark:text-white timer-font bg-white dark:bg-slate-900 inline-block px-3 py-1 rounded-lg shadow-sm" id="timer-${playingMatch.id}">${currentTimerText}</div>
                         ${st ? `<div class="text-[10px] text-slate-400 mt-1">เริ่ม ${st} น.</div>` : ''}
                     </div>
 
@@ -404,7 +464,7 @@ function renderDashboard() {
             cardHtml += `
                 <div class="relative bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-700 dark:to-slate-800 rounded-xl p-4 border border-amber-200 dark:border-amber-800/50 shadow-inner">
                     <span class="absolute top-3 right-3 flex h-3 w-3">
-                        <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60"></span>
                         <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
                     </span>
                     
@@ -447,7 +507,12 @@ function renderDashboard() {
                 </div>
             </div>
         `;
-        dashboard.innerHTML += cardHtml;
+        fullDashboardHtml += cardHtml;
+    }
+
+    // อัปเดต DOM เฉพาะเมื่อเนื้อหาเปลี่ยน เพื่อป้องกันการกระพริบ
+    if (dashboard.innerHTML !== fullDashboardHtml) {
+        dashboard.innerHTML = fullDashboardHtml;
     }
 
     // วาดแถวคิวรอกลาง (Central Waiting Queue Pool)
@@ -464,16 +529,19 @@ function renderCentralWaitingQueue(currentNickname, userActiveMatch) {
     if (centralQueueBadge) centralQueueBadge.innerText = `${waitingMatches.length} คิว`;
 
     if (waitingMatches.length === 0) {
-        centralQueueContainer.innerHTML = `
+        const emptyHtml = `
             <div class="col-span-full py-8 text-center bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
                 <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">ขณะนี้ไม่มีคิวรอลงสนาม</p>
                 <p class="text-slate-400 text-xs mt-0.5">กดปุ่ม <b>"สร้างคิวใหม่"</b> ด้านบนเพื่อเปิดห้องลงชื่อได้เลยครับ</p>
             </div>
         `;
+        if (centralQueueContainer.innerHTML !== emptyHtml) {
+            centralQueueContainer.innerHTML = emptyHtml;
+        }
         return;
     }
 
-    centralQueueContainer.innerHTML = '';
+    let fullQueueHtml = '';
     waitingMatches.forEach((m, idx) => {
         const teamA = Array.isArray(m.teamA) ? m.teamA : [];
         const teamB = Array.isArray(m.teamB) ? m.teamB : [];
@@ -519,49 +587,52 @@ function renderCentralWaitingQueue(currentNickname, userActiveMatch) {
 
         const isCreator = (m.createdBy && m.createdBy === sessionStorage.getItem('playerUid')) || (m.creatorName && m.creatorName === currentNickname);
 
-        const card = document.createElement('div');
-        card.className = 'bg-white dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-3';
-        card.innerHTML = `
-            <div class="flex justify-between items-start">
-                <div class="flex items-center gap-2">
-                    <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">${idx + 1}</span>
-                    <div>
-                        <div class="font-bold text-slate-800 dark:text-white text-sm">คิวที่ ${m.id}</div>
-                        <div class="text-[10px] ${courtClass} px-1.5 py-0.5 rounded font-semibold inline-block mt-0.5">${courtText}</div>
+        fullQueueHtml += `
+            <div class="bg-white dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-3">
+                <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">${idx + 1}</span>
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">คิวที่ ${m.id}</div>
+                            <div class="text-[10px] ${courtClass} px-1.5 py-0.5 rounded font-semibold inline-block mt-0.5">${courtText}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        ${priorityBadge}
+                        ${joinActionHtml}
                     </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                    ${priorityBadge}
-                    ${joinActionHtml}
-                </div>
-            </div>
 
-            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2.5 text-xs space-y-1.5 border border-slate-100 dark:border-slate-700">
-                <div class="flex justify-between items-center">
-                    <span class="text-slate-400 shrink-0 mr-2">ทีม A:</span>
-                    <span class="truncate text-right">${teamAHtml}</span>
+                <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2.5 text-xs space-y-1.5 border border-slate-100 dark:border-slate-700">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 shrink-0 mr-2">ทีม A:</span>
+                        <span class="truncate text-right">${teamAHtml}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 shrink-0 mr-2">ทีม B:</span>
+                        <span class="truncate text-right">${teamBHtml}</span>
+                    </div>
                 </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-slate-400 shrink-0 mr-2">ทีม B:</span>
-                    <span class="truncate text-right">${teamBHtml}</span>
-                </div>
-            </div>
 
-            <div class="flex justify-between items-center text-[11px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-700">
-                <span>${m.creatorName ? `สร้างโดย: <b class="text-slate-600 dark:text-slate-300">${m.creatorName}</b>` : ''}</span>
-                ${isCreator ? `
-                    <button onclick="cancelOrLeaveMatch(${m.id})" class="text-red-500 hover:text-red-700 font-semibold transition">
-                        ยกเลิกคิว
-                    </button>
-                ` : (isUserInThisMatch ? `
-                    <button onclick="cancelOrLeaveMatch(${m.id})" class="text-amber-500 hover:text-amber-700 font-semibold transition">
-                        ออกจากคิว
-                    </button>
-                ` : '')}
+                <div class="flex justify-between items-center text-[11px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-700">
+                    <span>${m.creatorName ? `สร้างโดย: <b class="text-slate-600 dark:text-slate-300">${m.creatorName}</b>` : ''}</span>
+                    ${isCreator ? `
+                        <button onclick="cancelOrLeaveMatch(${m.id})" class="text-red-500 hover:text-red-700 font-semibold transition">
+                            ยกเลิกคิว
+                        </button>
+                    ` : (isUserInThisMatch ? `
+                        <button onclick="cancelOrLeaveMatch(${m.id})" class="text-amber-500 hover:text-amber-700 font-semibold transition">
+                            ออกจากคิว
+                        </button>
+                    ` : '')}
+                </div>
             </div>
         `;
-        centralQueueContainer.appendChild(card);
     });
+
+    if (centralQueueContainer.innerHTML !== fullQueueHtml) {
+        centralQueueContainer.innerHTML = fullQueueHtml;
+    }
 }
 
 // วาดรายชื่อผู้เล่นที่ "มาสนามแล้ว" แบบ Compact Chips พร้อมระบบค้นหาและพับเก็บ
@@ -585,7 +656,6 @@ function filterOnlinePlayers() {
 function applyOnlinePlayersFilter() {
     const container = document.getElementById('onlinePlayersContainer');
     if (!container) return;
-    container.innerHTML = '';
 
     const query = (document.getElementById('searchOnlinePlayerInput')?.value || '').trim().toLowerCase();
     const filtered = allOnlinePlayersCache.filter(p =>
@@ -593,23 +663,30 @@ function applyOnlinePlayersFilter() {
     );
 
     if (filtered.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 py-2">ไม่พบรายชื่อผู้เล่นที่ค้นหา</p>';
+        const emptyMsg = '<p class="text-xs text-slate-400 py-2">ไม่พบรายชื่อผู้เล่นที่ค้นหา</p>';
+        if (container.innerHTML !== emptyMsg) {
+            container.innerHTML = emptyMsg;
+        }
         return;
     }
 
+    let chipsHtml = '';
     filtered.forEach(p => {
-        const chip = document.createElement('div');
-        chip.className = 'inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-700/60 hover:bg-blue-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-full px-3 py-1.5 text-xs transition shadow-sm select-none';
-        chip.innerHTML = `
-            <span class="relative flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span class="font-semibold text-slate-800 dark:text-slate-200">${p.name}</span>
-            ${p.fullName ? `<span class="text-[10px] text-slate-400">(${p.fullName})</span>` : ''}
+        chipsHtml += `
+            <div class="inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-700/60 hover:bg-blue-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-full px-3 py-1.5 text-xs transition shadow-sm select-none">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span class="font-semibold text-slate-800 dark:text-slate-200">${p.name}</span>
+                ${p.fullName ? `<span class="text-[10px] text-slate-400">(${p.fullName})</span>` : ''}
+            </div>
         `;
-        container.appendChild(chip);
     });
+
+    if (container.innerHTML !== chipsHtml) {
+        container.innerHTML = chipsHtml;
+    }
 }
 
 function renderOnlinePlayers(playersFromCloud = null) {
