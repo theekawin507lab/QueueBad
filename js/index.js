@@ -201,8 +201,16 @@ function renderPlayerList() {
 
 function loadData() {
     // ===== Session Guard =====
+    // ซิงค์เซสชันจาก localStorage เข้าสู่ sessionStorage
+    ['isLoggedIn', 'adminName', 'adminUid'].forEach(k => {
+        const val = localStorage.getItem(k);
+        if (val && !sessionStorage.getItem(k)) {
+            sessionStorage.setItem(k, val);
+        }
+    });
+
     // ถ้าไม่ได้ล็อกอินผ่าน login.html ให้ Redirect กลับ
-    if (!sessionStorage.getItem('isLoggedIn')) {
+    if (!sessionStorage.getItem('isLoggedIn') && !localStorage.getItem('isLoggedIn')) {
         window.location.replace('login.html');
         return;
     }
@@ -348,6 +356,9 @@ function initAdminFirestore() {
 // ฟังก์ชันออกจากระบบ Admin
 function logoutAdmin() {
     if (confirm('ต้องการออกจากระบบ Admin หรือไม่?')) {
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('adminName');
+        localStorage.removeItem('adminUid');
         sessionStorage.removeItem('isLoggedIn');
         sessionStorage.removeItem('adminName');
         sessionStorage.removeItem('adminUid');

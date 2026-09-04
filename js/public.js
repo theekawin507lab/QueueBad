@@ -9,6 +9,14 @@ let timerInterval = null;
 let currentUserProfile = null;
 let currentJoiningMatchId = null;
 
+// ซิงค์เซสชันจาก localStorage เข้าสู่ sessionStorage อัตโนมัติ เพื่อรักษาเซสชันเมื่อเปิดแท็บใหม่หรือรีเฟรช
+['isPlayerLoggedIn', 'playerUid', 'playerNickname', 'playerData', 'isLoggedIn', 'adminName', 'adminUid'].forEach(key => {
+    const val = localStorage.getItem(key);
+    if (val && !sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, val);
+    }
+});
+
 // ฟังก์ชันแสดงวันที่
 function displayDate() {
     const dateOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -172,7 +180,7 @@ function renderDashboard() {
         }
 
         let cardHtml = `
-            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col justify-between h-full transform transition hover:shadow-md">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-2 border-slate-200/90 dark:border-slate-700/90 overflow-hidden flex flex-col justify-between h-full transform transition hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600">
                 <!-- หัวการ์ด (Header สนาม) -->
                 <div class="bg-slate-100 dark:bg-slate-700/50 py-3 px-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                     <div class="flex items-center gap-2">
@@ -704,7 +712,7 @@ function populatePlayerDropdowns(currentNick) {
     dropdowns.forEach(id => {
         const select = document.getElementById(id);
         if (!select) return;
-        select.innerHTML = `<option value="">-- (ว่าง - เปิดให้คนอื่นเข้าร่วม) --</option>`;
+        select.innerHTML = `<option value="">ว่าง</option>`;
 
         presentPlayers.forEach(p => {
             const opt = document.createElement('option');
@@ -1039,6 +1047,10 @@ function closeProfileDrawer() {
 
 function logoutPlayer() {
     if (confirm('ต้องการออกจากระบบโปรไฟล์หรือไม่?')) {
+        localStorage.removeItem('isPlayerLoggedIn');
+        localStorage.removeItem('playerUid');
+        localStorage.removeItem('playerNickname');
+        localStorage.removeItem('playerData');
         sessionStorage.removeItem('isPlayerLoggedIn');
         sessionStorage.removeItem('playerUid');
         sessionStorage.removeItem('playerNickname');

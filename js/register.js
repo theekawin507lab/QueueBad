@@ -89,7 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('เตือน: ไม่สามารถบันทึกลง players ได้ในทันที:', pErr);
             }
 
-            // 4. บันทึกข้อมูลลง local session ด้วยเพื่อความรวดเร็วในการเปิดหน้าถัดไป
+            // 4. บันทึกข้อมูลลง local session และ localStorage เพื่อจดจำสถานะผู้ใช้งาน
+            localStorage.setItem('isPlayerLoggedIn', 'true');
+            localStorage.setItem('playerUid', user.uid);
+            localStorage.setItem('playerNickname', nickname);
+            localStorage.setItem('playerData', JSON.stringify(userData));
             sessionStorage.setItem('isPlayerLoggedIn', 'true');
             sessionStorage.setItem('playerUid', user.uid);
             sessionStorage.setItem('playerNickname', nickname);

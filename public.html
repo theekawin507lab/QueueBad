@@ -25,7 +25,7 @@
                 </div>
                 <div class="flex gap-1.5 sm:gap-3 text-xs sm:text-sm font-medium items-center flex-wrap justify-end">
                     <button onclick="openGuideModal('public')"
-                        class="hover:bg-blue-600 dark:hover:bg-blue-800 px-2.5 py-1.5 rounded transition">
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
                         คู่มือ</button>
                     <button onclick="openReportModal()"
                         class="bg-orange-500 hover:bg-orange-600 px-2.5 py-1.5 rounded transition shadow">
@@ -33,7 +33,7 @@
                     <a href="public.html"
                         class="bg-blue-800 dark:bg-blue-950 px-2.5 py-1.5 rounded transition shadow-inner hidden md:inline-block">ดูกระดานคิว</a>
                     <a href="booking.html"
-                        class="hover:bg-blue-600 dark:hover:bg-blue-800 px-2.5 py-1.5 rounded transition hidden sm:inline-block">ขอใช้สนาม</a>
+                        class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-3 py-1.5 rounded-lg shadow-sm transition hidden sm:inline-block">ขอใช้สนาม</a>
 
                     <!-- ปุ่ม Fullscreen สำหรับขึ้นจอทีวี -->
                     <button onclick="toggleFullscreen()" title="เต็มจอ (สำหรับฉายขึ้นจอทีวี)"
@@ -115,14 +115,11 @@
         <!-- โครงสร้างหน้าจอแบบใหม่: 4 สนามด้านบน + คิวกลาง + รายชื่อผู้เล่นด้านล่าง -->
         
         <!-- ส่วนที่ 1: สถานะ 4 สนามแข่งขัน (คงที่ 4 สนาม) -->
-        <div class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+        <div class="mb-8 bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center justify-between pb-3 mb-5 border-b border-slate-200 dark:border-slate-700">
+                <h2 class="text-lg sm:text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                     <span>สถานะสนามแข่งขัน (สนาม 1 - 4)</span>
                 </h2>
-                <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-600">
-                    ระบบ 4 สนาม
-                </span>
             </div>
             <!-- Grid 4 สนามคงที่ (1 แถว 4 คอร์ทบนจอใหญ่, 2x2 บนแท็บเล็ต, 1 คอลัมน์บนมือถือ) -->
             <div id="courtsDashboard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
@@ -316,18 +313,6 @@
                     </select>
                 </div>
 
-                <!-- ทางลัดเลือกรูปแบบ -->
-                <div class="flex gap-2">
-                    <button type="button" onclick="setQuickSlotFormat('solo')"
-                        class="flex-1 py-1.5 px-2 bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 transition">
-                        มาคนเดียว (เปิดว่าง 3 ที่)
-                    </button>
-                    <button type="button" onclick="setQuickSlotFormat('pair')"
-                        class="flex-1 py-1.5 px-2 bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 transition">
-                        มีคู่แล้ว (เปิดว่างทีม B)
-                    </button>
-                </div>
-
                 <!-- ผู้เล่นทีม A -->
                 <div class="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2.5">
                     <div class="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">ทีม A (ฝั่งสีน้ำเงิน)</div>
@@ -341,7 +326,7 @@
                             <label class="block text-[11px] text-slate-500 mb-0.5">ผู้เล่น 2 (คู่หู)</label>
                             <select id="cqA2"
                                 class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">-- (ว่าง - รอคนเข้าร่วม) --</option>
+                                <option value="">ว่าง</option>
                             </select>
                         </div>
                     </div>
@@ -355,14 +340,14 @@
                             <label class="block text-[11px] text-slate-500 mb-0.5">ผู้เล่น 1</label>
                             <select id="cqB1"
                                 class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500">
-                                <option value="">-- (ว่าง - รอคนเข้าร่วม) --</option>
+                                <option value="">ว่าง</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-500 mb-0.5">ผู้เล่น 2</label>
                             <select id="cqB2"
                                 class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500">
-                                <option value="">-- (ว่าง - รอคนเข้าร่วม) --</option>
+                                <option value="">ว่าง</option>
                             </select>
                         </div>
                     </div>
