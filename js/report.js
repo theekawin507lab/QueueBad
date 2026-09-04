@@ -70,10 +70,44 @@ function initReportModal() {
     });
 }
 
+function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let w = img.width;
+                let h = img.height;
+                if (w > maxWidth || h > maxHeight) {
+                    if (w > h) {
+                        h = Math.round((h * maxWidth) / w);
+                        w = maxWidth;
+                    } else {
+                        w = Math.round((w * maxHeight) / h);
+                        h = maxHeight;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve({ name: file.name, data: compressedDataUrl });
+            };
+            img.onerror = () => {
+                resolve({ name: file.name, data: e.target.result });
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 // เก็บ Base64 รูปภาพที่แนบ
 let _reportImages = [];
 
-function handleReportImages(input) {
+async function handleReportImages(input) {
     const files = Array.from(input.files);
     const remaining = 3 - _reportImages.length;
     if (files.length > remaining) {
@@ -81,18 +115,19 @@ function handleReportImages(input) {
     }
     const toProcess = files.slice(0, remaining);
 
-    toProcess.forEach(file => {
-        if (file.size > 2 * 1024 * 1024) {
-            alert(`ไฟล์ "${file.name}" มีขนาดเกิน 2MB กรุณาเลือกรูปที่มีขนาดเล็กกว่า`);
-            return;
+    for (let file of toProcess) {
+        if (file.size > 5 * 1024 * 1024) {
+            alert(`ไฟล์ "${file.name}" มีขนาดเกิน 5MB กรุณาเลือกรูปที่มีขนาดเล็กกว่า`);
+            continue;
         }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            _reportImages.push({ name: file.name, data: e.target.result });
+        try {
+            const compressed = await compressImage(file);
+            _reportImages.push(compressed);
             renderReportImagePreview();
-        };
-        reader.readAsDataURL(file);
-    });
+        } catch (err) {
+            console.warn('Compress image error:', err);
+        }
+    }
 
     // reset input เพื่อให้เลือกซ้ำได้
     input.value = '';
@@ -141,7 +176,7 @@ function closeReportModal() {
     if (modal) modal.classList.add('modal-hidden');
 }
 
-function submitReport() {
+async function submitReport() {
     const subject = document.getElementById('reportSubject').value.trim();
     const detail = document.getElementById('reportDetail').value.trim();
 
@@ -156,19 +191,57 @@ function submitReport() {
         return;
     }
 
-    const reports = JSON.parse(localStorage.getItem('problemReports')) || [];
-    reports.push({
-        id: Date.now(),
+    const reportBtn = document.querySelector('#reportModal button[onclick="submitReport()"]');
+    if (reportBtn) {
+        reportBtn.disabled = true;
+        reportBtn.innerText = 'กำลังส่งรายงาน...';
+    }
+
+    const reportId = Date.now();
+    const reporterName = sessionStorage.getItem('playerNickname') || localStorage.getItem('playerNickname') || sessionStorage.getItem('adminName') || 'ผู้ใช้ทั่วไป';
+    const reporterUid = sessionStorage.getItem('playerUid') || localStorage.getItem('playerUid') || null;
+
+    const reportData = {
+        id: reportId,
         subject: subject,
         detail: detail,
         images: _reportImages.map(img => ({ name: img.name, data: img.data })),
         page: document.title,
+        reporterName: reporterName,
+        reporterUid: reporterUid,
         timestamp: new Date().toISOString(),
         isRead: false
-    });
-    localStorage.setItem('problemReports', JSON.stringify(reports));
+    };
+
+    // 1. บันทึกลง Firebase Firestore (Cloud Sync ไปยังหน้า Admin ทันที)
+    let firestoreSuccess = false;
+    if (typeof db !== 'undefined' && db) {
+        try {
+            await db.collection('reports').doc(String(reportId)).set({
+                ...reportData,
+                serverTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            firestoreSuccess = true;
+        } catch (err) {
+            console.error('Firestore report save error:', err);
+        }
+    }
+
+    // 2. บันทึกลง LocalStorage เป็นสำรอง
+    try {
+        const reports = JSON.parse(localStorage.getItem('problemReports')) || [];
+        reports.push(reportData);
+        localStorage.setItem('problemReports', JSON.stringify(reports));
+    } catch (e) {
+        console.warn('LocalStorage save error:', e);
+    }
+
+    if (reportBtn) {
+        reportBtn.disabled = false;
+        reportBtn.innerText = 'ส่งรายงาน';
+    }
 
     _reportImages = [];
     closeReportModal();
-    alert('ส่งรายงานปัญหาเรียบร้อยแล้ว!\nขอบคุณสำหรับข้อมูลครับ');
+    alert('ส่งรายงานปัญหาเรียบร้อยแล้ว!\nระบบได้ส่งข้อมูลตรงไปยังผู้ดูแลระบบเรียบร้อย ขอบคุณสำหรับข้อมูลครับ');
 }

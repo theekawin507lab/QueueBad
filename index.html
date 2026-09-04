@@ -104,8 +104,8 @@
                                 <button type="button" onclick="document.getElementById('p1').value=''"
                                     class="text-xs text-red-500 hover:text-red-700 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded transition">ลบชื่อ</button>
                             </div>
-                            <input type="text" id="p1" required readonly
-                                class="w-full border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-not-allowed"
+                            <input type="text" id="p1" readonly onclick="setTargetSlot('p1')"
+                                class="queue-slot-input w-full border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-pointer hover:border-blue-400 transition"
                                 placeholder="คลิกเลือกจากฝั่งซ้าย">
                         </div>
 
@@ -116,8 +116,8 @@
                                 <button type="button" onclick="document.getElementById('p2').value=''"
                                     class="text-xs text-red-500 hover:text-red-700 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded transition">ลบชื่อ</button>
                             </div>
-                            <input type="text" id="p2" required readonly
-                                class="w-full border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-not-allowed"
+                            <input type="text" id="p2" readonly onclick="setTargetSlot('p2')"
+                                class="queue-slot-input w-full border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-pointer hover:border-blue-400 transition"
                                 placeholder="คลิกเลือกจากฝั่งซ้าย">
                         </div>
 
@@ -132,8 +132,8 @@
                                 <button type="button" onclick="document.getElementById('p3').value=''"
                                     class="text-xs text-red-500 hover:text-red-700 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded transition">ลบชื่อ</button>
                             </div>
-                            <input type="text" id="p3" required readonly
-                                class="w-full border border-red-200 bg-red-50 dark:border-red-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-not-allowed"
+                            <input type="text" id="p3" readonly onclick="setTargetSlot('p3')"
+                                class="queue-slot-input w-full border border-red-200 bg-red-50 dark:border-red-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-pointer hover:border-red-400 transition"
                                 placeholder="คลิกเลือกจากฝั่งซ้าย">
                         </div>
 
@@ -144,8 +144,8 @@
                                 <button type="button" onclick="document.getElementById('p4').value=''"
                                     class="text-xs text-red-500 hover:text-red-700 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded transition">ลบชื่อ</button>
                             </div>
-                            <input type="text" id="p4" required readonly
-                                class="w-full border border-red-200 bg-red-50 dark:border-red-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-not-allowed"
+                            <input type="text" id="p4" readonly onclick="setTargetSlot('p4')"
+                                class="queue-slot-input w-full border border-red-200 bg-red-50 dark:border-red-900 dark:bg-gray-700 dark:text-white rounded px-3 py-2 outline-none cursor-pointer hover:border-red-400 transition"
                                 placeholder="คลิกเลือกจากฝั่งซ้าย">
                         </div>
 
@@ -362,6 +362,17 @@
                     ยกเลิก
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal ดูรูปภาพรายงานปัญหา (Lightbox) -->
+    <div id="reportImageModal"
+        class="modal-hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4"
+        onclick="closeReportImageModal()">
+        <div class="relative max-w-3xl max-h-[90vh] flex flex-col items-center bg-transparent" onclick="event.stopPropagation()">
+            <button onclick="closeReportImageModal()" class="absolute -top-10 right-0 text-white text-3xl font-bold hover:text-gray-300">&times;</button>
+            <img id="reportImageModalImg" src="" alt="ภาพรายงานปัญหา" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl object-contain border border-white/20">
+            <p id="reportImageModalCaption" class="text-white text-xs mt-3 text-center bg-black/60 px-4 py-1.5 rounded-full"></p>
         </div>
     </div>
 

@@ -152,13 +152,26 @@ function getActiveMatchForUser(nickname) {
 // ==========================================
 const TOTAL_COURTS = 4;
 
+// ฟังก์ชันจัดรูปแบบชื่อผู้เล่นในคิว (ไฮไลต์ชื่อตนเองเป็นสีเขียว + ปรับสีทีม B ให้เป็นสีเดียวกับทีม A)
+function formatPlayerForQueue(name, currentNickname) {
+    if (!name || name === '(ว่าง)' || !name.trim()) {
+        return '<span class="text-slate-400 font-normal italic">(ว่าง)</span>';
+    }
+    const cleanName = name.trim();
+    const isMe = currentNickname && (cleanName.toLowerCase() === currentNickname.trim().toLowerCase());
+    if (isMe) {
+        return `<span class="text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-50 dark:bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 shadow-sm inline-block">👤 ${cleanName} (คุณ)</span>`;
+    }
+    return `<span class="text-blue-600 dark:text-blue-400 font-bold">${cleanName}</span>`;
+}
+
 function renderDashboard() {
     const dashboard = document.getElementById('courtsDashboard');
     if (!dashboard) return;
     dashboard.innerHTML = '';
 
     const CALLING_TIMEOUT = 90;
-    const currentNickname = sessionStorage.getItem('playerNickname');
+    const currentNickname = sessionStorage.getItem('playerNickname') || localStorage.getItem('playerNickname') || '';
     const userActiveMatch = getActiveMatchForUser(currentNickname);
 
     // วาดการ์ด 4 สนามคงที่ (สนาม 1 ถึง สนาม 4)
@@ -218,14 +231,14 @@ function renderDashboard() {
                     <div class="flex justify-between items-center bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm border border-slate-100 dark:border-slate-600">
                         <div class="text-center w-[45%]">
                             <div class="text-xs text-slate-400 mb-1">ทีม A</div>
-                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400 truncate">${pTeamA0}</div>
-                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400 truncate">${pTeamA1}</div>
+                            <div class="text-sm truncate mb-0.5">${formatPlayerForQueue(pTeamA0, currentNickname)}</div>
+                            <div class="text-sm truncate">${formatPlayerForQueue(pTeamA1, currentNickname)}</div>
                         </div>
                         <div class="text-xs font-black text-slate-300 dark:text-slate-500">VS</div>
                         <div class="text-center w-[45%]">
                             <div class="text-xs text-slate-400 mb-1">ทีม B</div>
-                            <div class="text-sm font-bold text-red-500 dark:text-red-400 truncate">${pTeamB0}</div>
-                            <div class="text-sm font-bold text-red-500 dark:text-red-400 truncate">${pTeamB1}</div>
+                            <div class="text-sm truncate mb-0.5">${formatPlayerForQueue(pTeamB0, currentNickname)}</div>
+                            <div class="text-sm truncate">${formatPlayerForQueue(pTeamB1, currentNickname)}</div>
                         </div>
                     </div>
                 </div>
@@ -259,14 +272,14 @@ function renderDashboard() {
                     <div class="flex justify-between items-center bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm border border-amber-100 dark:border-slate-600">
                         <div class="text-center w-[45%]">
                             <div class="text-xs text-slate-400 mb-1">ทีม A</div>
-                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400 truncate">${cTeamA0}</div>
-                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400 truncate">${cTeamA1}</div>
+                            <div class="text-sm truncate mb-0.5">${formatPlayerForQueue(cTeamA0, currentNickname)}</div>
+                            <div class="text-sm truncate">${formatPlayerForQueue(cTeamA1, currentNickname)}</div>
                         </div>
                         <div class="text-xs font-black text-slate-300 dark:text-slate-500">VS</div>
                         <div class="text-center w-[45%]">
                             <div class="text-xs text-slate-400 mb-1">ทีม B</div>
-                            <div class="text-sm font-bold text-red-500 dark:text-red-400 truncate">${cB0}</div>
-                            <div class="text-sm font-bold text-red-500 dark:text-red-400 truncate">${cB1}</div>
+                            <div class="text-sm truncate mb-0.5">${formatPlayerForQueue(cTeamB0, currentNickname)}</div>
+                            <div class="text-sm truncate">${formatPlayerForQueue(cTeamB1, currentNickname)}</div>
                         </div>
                     </div>
                 </div>
@@ -348,8 +361,13 @@ function renderCentralWaitingQueue(currentNickname, userActiveMatch) {
             }
         }
 
-        const teamAText = `${(m.teamA && m.teamA[0]) || '(ว่าง)'}, ${(m.teamA && m.teamA[1]) || '(ว่าง)'}`;
-        const teamBText = `${(m.teamB && m.teamB[0]) || '(ว่าง)'}, ${(m.teamB && m.teamB[1]) || '(ว่าง)'}`;
+        const pA0 = (m.teamA && m.teamA[0]) || '';
+        const pA1 = (m.teamA && m.teamA[1]) || '';
+        const pB0 = (m.teamB && m.teamB[0]) || '';
+        const pB1 = (m.teamB && m.teamB[1]) || '';
+
+        const teamAHtml = `${formatPlayerForQueue(pA0, currentNickname)}, ${formatPlayerForQueue(pA1, currentNickname)}`;
+        const teamBHtml = `${formatPlayerForQueue(pB0, currentNickname)}, ${formatPlayerForQueue(pB1, currentNickname)}`;
 
         const isCreator = (m.createdBy && m.createdBy === sessionStorage.getItem('playerUid')) || (m.creatorName && m.creatorName === currentNickname);
 
@@ -370,14 +388,14 @@ function renderCentralWaitingQueue(currentNickname, userActiveMatch) {
                 </div>
             </div>
 
-            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2.5 text-xs space-y-1 border border-slate-100 dark:border-slate-700">
-                <div class="flex justify-between">
-                    <span class="text-slate-400">ทีม A:</span>
-                    <span class="font-bold text-blue-600 dark:text-blue-400 truncate max-w-[180px]">${teamAText}</span>
+            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2.5 text-xs space-y-1.5 border border-slate-100 dark:border-slate-700">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 shrink-0 mr-2">ทีม A:</span>
+                    <span class="truncate text-right">${teamAHtml}</span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">ทีม B:</span>
-                    <span class="font-bold text-red-500 dark:text-red-400 truncate max-w-[180px]">${teamBText}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 shrink-0 mr-2">ทีม B:</span>
+                    <span class="truncate text-right">${teamBHtml}</span>
                 </div>
             </div>
 
@@ -650,8 +668,8 @@ function checkMyQueueStatus() {
                     <span class="text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white font-semibold">${activeMatch.status}</span>
                 </div>
                 <p class="text-xs text-slate-600 dark:text-slate-400">
-                    ทีม A: ${(activeMatch.teamA || []).filter(n => n).join(', ') || '(ว่าง)'} <br>
-                    ทีม B: ${(activeMatch.teamB || []).filter(n => n).join(', ') || '(ว่าง)'}
+                    ทีม A: ${(activeMatch.teamA || []).filter(n => n).map(n => formatPlayerForQueue(n, nickname)).join(', ') || '(ว่าง)'} <br>
+                    ทีม B: ${(activeMatch.teamB || []).filter(n => n).map(n => formatPlayerForQueue(n, nickname)).join(', ') || '(ว่าง)'}
                 </p>
                 ${actionBtnHtml ? `<div class="pt-1">${actionBtnHtml}</div>` : ''}
             `;

@@ -94,30 +94,124 @@ async function removePlayer(index) {
     const p = playerList[index];
     if (!p) return;
 
-    if (confirm(`ลบชื่อ "${p.name}" ออกจากรายชื่อผู้เล่น?`)) {
+    if (confirm(`ต้องการลบผู้เล่น "${p.name}" และข้อมูลการลงทะเบียนทั้งหมดออกจากฐานข้อมูลหรือไม่?\n\nการกระทำนี้จะลบข้อมูลออกจากทั้งรายชื่อผู้เล่นในสนาม (players) และบัญชีผู้ใช้ (users) เพื่อให้ผู้เล่นสามารถลงทะเบียนใหม่ หรือแก้ไขข้อมูลที่ผิดพลาดได้`)) {
         playerList.splice(index, 1);
         localStorage.setItem('badmintonPlayers', JSON.stringify(playerList));
         renderPlayerList();
 
         if (db) {
             try {
-                // ลบออกจาก Firestore ทั้ง docId ที่เป็น uid, ชื่อจริง หรือ encoded
+                const batch = db.batch();
+                let hasBatchOps = false;
+
+                // 1. ค้นหาและลบจากคอลเลกชัน players
                 const idsToDelete = [p.uid, p.name, encodeURIComponent(p.name)].filter(Boolean);
                 for (let id of idsToDelete) {
-                    await db.collection('players').doc(id).delete().catch(() => {});
+                    const docRef = db.collection('players').doc(id);
+                    batch.delete(docRef);
+                    hasBatchOps = true;
                 }
+
+                // ค้นหา players ที่ชื่อหรือชื่อเล่นตรงกัน
+                const pSnap1 = await db.collection('players').where('name', '==', p.name).get().catch(() => null);
+                if (pSnap1 && !pSnap1.empty) {
+                    pSnap1.forEach(doc => {
+                        batch.delete(doc.ref);
+                        hasBatchOps = true;
+                    });
+                }
+                const pSnap2 = await db.collection('players').where('nickname', '==', p.name).get().catch(() => null);
+                if (pSnap2 && !pSnap2.empty) {
+                    pSnap2.forEach(doc => {
+                        batch.delete(doc.ref);
+                        hasBatchOps = true;
+                    });
+                }
+
+                // 2. ค้นหาและลบจากคอลเลกชัน users (ข้อมูลที่ผู้เล่นลงทะเบียนเข้ามาทั้งหมด)
+                if (p.uid) {
+                    batch.delete(db.collection('users').doc(p.uid));
+                    hasBatchOps = true;
+                }
+                const uSnap1 = await db.collection('users').where('nickname', '==', p.name).get().catch(() => null);
+                if (uSnap1 && !uSnap1.empty) {
+                    uSnap1.forEach(doc => {
+                        batch.delete(doc.ref);
+                        batch.delete(db.collection('players').doc(doc.id));
+                        hasBatchOps = true;
+                    });
+                }
+                const uSnap2 = await db.collection('users').where('username', '==', p.name).get().catch(() => null);
+                if (uSnap2 && !uSnap2.empty) {
+                    uSnap2.forEach(doc => {
+                        batch.delete(doc.ref);
+                        hasBatchOps = true;
+                    });
+                }
+                const uSnap3 = await db.collection('users').where('firstName', '==', p.name).get().catch(() => null);
+                if (uSnap3 && !uSnap3.empty) {
+                    uSnap3.forEach(doc => {
+                        batch.delete(doc.ref);
+                        hasBatchOps = true;
+                    });
+                }
+
+                if (hasBatchOps) {
+                    await batch.commit();
+                }
+                console.log(`ลบข้อมูลผู้เล่น ${p.name} ออกจากฐานข้อมูลทั้งหมดเรียบร้อยแล้ว`);
             } catch (err) {
-                console.error('Error deleting player from Firestore:', err);
+                console.error('Error deleting player and user profile from Firestore:', err);
+                alert('เกิดข้อผิดพลาดในการลบข้อมูลจาก Cloud: ' + err.message);
             }
         }
     }
 }
 
+let targetedSlotId = null;
+
+function setTargetSlot(slotId) {
+    // รีเซ็ตสไตล์ทุกช่อง
+    ['p1', 'p2', 'p3', 'p4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1');
+    });
+
+    if (targetedSlotId === slotId) {
+        targetedSlotId = null; // ปลดการเลือกถ้ากดซ้ำ
+    } else {
+        targetedSlotId = slotId;
+        const targetEl = document.getElementById(slotId);
+        if (targetEl) targetEl.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
+    }
+}
+
 function selectPlayer(name) {
+    if (targetedSlotId) {
+        const el = document.getElementById(targetedSlotId);
+        if (el) {
+            el.value = name;
+            // เลื่อนไปยังช่องถัดไปที่ยังว่าง
+            const inputs = ['p1', 'p2', 'p3', 'p4'];
+            const curIdx = inputs.indexOf(targetedSlotId);
+            setTargetSlot(null); // ปลดช่องเดิม
+            for (let i = 1; i <= 4; i++) {
+                const nextId = inputs[(curIdx + i) % 4];
+                const nextEl = document.getElementById(nextId);
+                if (nextEl && !nextEl.value) {
+                    setTargetSlot(nextId);
+                    break;
+                }
+            }
+            return;
+        }
+    }
+
+    // กรณีไม่ได้เจาะจงช่อง ให้ใส่ช่องว่างแรก
     const inputs = ['p1', 'p2', 'p3', 'p4'];
     for (let id of inputs) {
         const el = document.getElementById(id);
-        if (!el.value) {
+        if (el && !el.value) {
             el.value = name;
             break;
         }
@@ -125,10 +219,11 @@ function selectPlayer(name) {
 }
 
 function clearFormInputs() {
-    document.getElementById('p1').value = '';
-    document.getElementById('p2').value = '';
-    document.getElementById('p3').value = '';
-    document.getElementById('p4').value = '';
+    ['p1', 'p2', 'p3', 'p4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    setTargetSlot(null);
 }
 
 function clearAllData() {
@@ -351,6 +446,22 @@ function initAdminFirestore() {
         localStorage.setItem('badmintonPlayers', JSON.stringify(playerList));
         renderPlayerList();
     }, (err) => console.warn('Admin players snapshot error:', err));
+
+    // 3. ดักฟังรายงานปัญหา (Reports) แบบ Real-time ข้ามอุปกรณ์
+    db.collection('reports').onSnapshot((snapshot) => {
+        const cloudReports = [];
+        snapshot.forEach(doc => {
+            const rData = doc.data();
+            cloudReports.push({
+                ...rData,
+                docId: doc.id
+            });
+        });
+        cloudReports.sort((a, b) => (b.id || 0) - (a.id || 0));
+        localStorage.setItem('problemReports', JSON.stringify(cloudReports));
+        renderReports();
+        updateReportBadge();
+    }, (err) => console.warn('Admin reports snapshot error:', err));
 }
 
 // ฟังก์ชันออกจากระบบ Admin
@@ -381,16 +492,21 @@ document.getElementById('addQueueForm').addEventListener('submit', function (e) 
     const p3 = document.getElementById('p3').value.trim();
     const p4 = document.getElementById('p4').value.trim();
 
-    const selectedPlayers = [p1, p2, p3, p4];
+    const filledPlayers = [p1, p2, p3, p4].filter(p => p.length > 0);
 
-    const uniquePlayers = new Set(selectedPlayers);
-    if (uniquePlayers.size < 4) {
-        alert('ข้อผิดพลาด: มีชื่อผู้เล่นซ้ำกันในคิวนี้');
+    if (filledPlayers.length < 2) {
+        alert('กรุณาเลือกผู้เล่นอย่างน้อย 2 คนเพื่อสร้างคิวครับ');
+        return;
+    }
+
+    const uniquePlayers = new Set(filledPlayers);
+    if (uniquePlayers.size < filledPlayers.length) {
+        alert('ข้อผิดพลาด: มีชื่อผู้เล่นซ้ำกันในคิวนี้ กรุณาเลือกผู้เล่นที่ไม่ซ้ำกันครับ');
         return;
     }
 
     let absentPlayers = [];
-    for (let name of selectedPlayers) {
+    for (let name of filledPlayers) {
         const playerObj = playerList.find(p => p.name === name);
         if (playerObj && playerObj.isPresent === false) {
             absentPlayers.push(name);
@@ -404,8 +520,8 @@ document.getElementById('addQueueForm').addEventListener('submit', function (e) 
     let busyPlayers = [];
     matches.forEach(match => {
         if (match.status === 'WAITING' || match.status === 'PLAYING' || match.status === 'CALLING') {
-            const matchPlayers = [...match.teamA, ...match.teamB];
-            selectedPlayers.forEach(p => {
+            const matchPlayers = [...(match.teamA || []), ...(match.teamB || [])];
+            filledPlayers.forEach(p => {
                 if (matchPlayers.includes(p)) busyPlayers.push(p);
             });
         }
@@ -414,6 +530,20 @@ document.getElementById('addQueueForm').addEventListener('submit', function (e) 
         const uniqueBusy = [...new Set(busyPlayers)];
         alert(`ไม่สามารถจองคิวซ้อนได้\n\nผู้เล่นต่อไปนี้มีชื่อค้างอยู่ในคิว "รอลงสนาม" หรือ "กำลังเล่น" แล้ว:\n- ${uniqueBusy.join('\n- ')}`);
         return;
+    }
+
+    // จัดทีมให้อัตโนมัติกรณีมี 2 คน เพื่อให้เล่น 1 vs 1
+    let finalTeamA = [p1, p2];
+    let finalTeamB = [p3, p4];
+
+    if (filledPlayers.length === 2) {
+        if (p1 && p2 && !p3 && !p4) {
+            finalTeamA = [p1, ''];
+            finalTeamB = [p2, ''];
+        } else if (!p1 && !p2 && p3 && p4) {
+            finalTeamA = [p3, ''];
+            finalTeamB = [p4, ''];
+        }
     }
 
     const courtVal = document.getElementById('court').value;
@@ -437,8 +567,8 @@ document.getElementById('addQueueForm').addEventListener('submit', function (e) 
 
     const newMatch = {
         id: matchCounter++,
-        teamA: [p1, p2],
-        teamB: [p3, p4],
+        teamA: finalTeamA,
+        teamB: finalTeamB,
         court: assignedCourt,
         status: initialStatus,
         startTime: null,
@@ -530,11 +660,11 @@ function autoCallNextQueue(courtNumber) {
         parseInt(m.court) === parseInt(courtNumber) && m.status === 'WAITING'
     );
 
-    // 2. ถ้าไม่มี ให้หาคิวแรกใน Central Queue ที่ยังไม่มีสนาม (หรือ auto) และมีผู้เล่นครบ 4 คน
+    // 2. ถ้าไม่มี ให้หาคิวแรกใน Central Queue ที่ยังไม่มีสนาม (หรือ auto) และมีผู้เล่นพร้อมลง (ตั้งแต่ 2 คนขึ้นไป)
     if (!nextMatch) {
         nextMatch = matches.find(m =>
             (!m.court || m.court === 'auto') && m.status === 'WAITING' &&
-            [...(m.teamA || []), ...(m.teamB || [])].filter(n => n && n.trim().length > 0).length === 4
+            [...(m.teamA || []), ...(m.teamB || [])].filter(n => n && n.trim().length > 0).length >= 2
         );
     }
 
@@ -636,8 +766,12 @@ function changeStatus(id, newStatus) {
     if (newStatus === 'PLAYING') {
         const m = matches[matchIndex];
         const allPlayers = [...(m.teamA || []), ...(m.teamB || [])].filter(n => n && n.trim().length > 0);
+        if (allPlayers.length < 2) {
+            alert('ไม่สามารถลงสนามได้: คิวนี้ต้องมีผู้เล่นอย่างน้อย 2 คนครับ');
+            return;
+        }
         if (allPlayers.length < 4) {
-            if (!confirm(`คิวนี้มีผู้เล่นเพียง ${allPlayers.length} คน (ยังไม่ครบ 4 คน)\nต้องการให้ลงสนามเลยหรือไม่?`)) {
+            if (!confirm(`คิวนี้มีผู้เล่น ${allPlayers.length} คน (ไม่ครบ 4 คน)\nต้องการให้ลงสนามเลยหรือไม่?`)) {
                 return;
             }
         }
@@ -949,12 +1083,8 @@ function openReportPanel() {
 function renderReports() {
     const reports = JSON.parse(localStorage.getItem('problemReports')) || [];
     const container = document.getElementById('reportListContainer');
-    const badge = document.getElementById('reportCountBadge');
 
     if (!container) return;
-
-    const unreadCount = reports.filter(r => !r.isRead).length;
-    // Badge จัดการผ่าน updateReportBadge() แล้ว — ไม่ต้อง overwrite className ที่นี่
 
     if (reports.length === 0) {
         container.innerHTML = '<p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6">ไม่มีรายงานปัญหา</p>';
@@ -962,12 +1092,26 @@ function renderReports() {
     }
 
     container.innerHTML = '';
-    // แสดงรายงานใหม่สุดก่อน
-    [...reports].reverse().forEach((report, reverseIdx) => {
-        const idx = reports.length - 1 - reverseIdx;
-        const date = new Date(report.timestamp).toLocaleString('th-TH');
+    reports.forEach((report) => {
+        const reportId = report.id || report.docId;
+        const date = report.timestamp ? new Date(report.timestamp).toLocaleString('th-TH') : '';
         const readClass = report.isRead ? 'opacity-60' : '';
         const unreadDot = report.isRead ? '' : '<span class="w-2 h-2 bg-orange-500 rounded-full shrink-0"></span>';
+        const sender = report.reporterName ? `<span class="text-blue-600 dark:text-blue-400 font-semibold">${report.reporterName}</span>` : 'ผู้ใช้ทั่วไป';
+
+        let imagesHtml = '';
+        if (report.images && Array.isArray(report.images) && report.images.length > 0) {
+            imagesHtml = `
+                <div class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                    ${report.images.map((img) => `
+                        <div class="relative group cursor-pointer" onclick="openReportImageModal('${img.data}', '${(img.name || 'รูปภาพ').replace(/'/g, "\\'")}')">
+                            <img src="${img.data}" alt="${img.name || 'รูปภาพ'}" class="w-16 h-16 object-cover rounded-lg border border-gray-300 dark:border-gray-500 shadow-sm hover:opacity-90 hover:scale-105 transition transform">
+                            <span class="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] px-1 rounded-tl">คลิกขยาย</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
 
         const div = document.createElement('div');
         div.className = `bg-gray-50 dark:bg-gray-700/50 border dark:border-gray-600 rounded-lg p-3 ${readClass} transition`;
@@ -979,11 +1123,12 @@ function renderReports() {
                         <span class="font-bold text-sm text-gray-800 dark:text-gray-200 truncate">${report.subject}</span>
                     </div>
                     <p class="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-line break-words">${report.detail}</p>
-                    <p class="text-[10px] text-gray-400 mt-1.5">${date} — จาก: ${report.page || 'ไม่ระบุ'}</p>
+                    ${imagesHtml}
+                    <p class="text-[10px] text-gray-400 mt-1.5">${date} — ผู้แจ้ง: ${sender} (จากหน้า: ${report.page || 'ไม่ระบุ'})</p>
                 </div>
                 <div class="flex gap-1 shrink-0">
-                    ${!report.isRead ? `<button onclick="markReportRead(${idx})" class="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-200 transition" title="อ่านแล้ว">✓</button>` : ''}
-                    <button onclick="deleteReport(${idx})" class="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded hover:bg-red-200 transition" title="ลบ">✕</button>
+                    ${!report.isRead ? `<button onclick="markReportRead('${reportId}')" class="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-200 transition" title="ทำเครื่องหมายว่าอ่านแล้ว">✓</button>` : ''}
+                    <button onclick="deleteReport('${reportId}')" class="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded hover:bg-red-200 transition" title="ลบรายงาน">✕</button>
                 </div>
             </div>
         `;
@@ -991,30 +1136,73 @@ function renderReports() {
     });
 }
 
-function markReportRead(index) {
+async function markReportRead(reportId) {
     const reports = JSON.parse(localStorage.getItem('problemReports')) || [];
-    if (reports[index]) {
-        reports[index].isRead = true;
+    const target = reports.find(r => String(r.id) === String(reportId) || String(r.docId) === String(reportId));
+    if (target) {
+        target.isRead = true;
         localStorage.setItem('problemReports', JSON.stringify(reports));
         renderReports();
         updateReportBadge();
     }
+    if (db) {
+        try {
+            await db.collection('reports').doc(String(reportId)).update({ isRead: true });
+        } catch (e) {
+            console.warn('Update report in Firestore error:', e);
+        }
+    }
 }
 
-function deleteReport(index) {
-    const reports = JSON.parse(localStorage.getItem('problemReports')) || [];
-    reports.splice(index, 1);
+async function deleteReport(reportId) {
+    if (!confirm('ต้องการลบรายงานปัญหานี้หรือไม่?')) return;
+    let reports = JSON.parse(localStorage.getItem('problemReports')) || [];
+    reports = reports.filter(r => String(r.id) !== String(reportId) && String(r.docId) !== String(reportId));
     localStorage.setItem('problemReports', JSON.stringify(reports));
     renderReports();
     updateReportBadge();
+
+    if (db) {
+        try {
+            await db.collection('reports').doc(String(reportId)).delete();
+        } catch (e) {
+            console.warn('Delete report from Firestore error:', e);
+        }
+    }
 }
 
-function clearAllReports() {
+async function clearAllReports() {
     if (confirm('ลบรายงานปัญหาทั้งหมด?')) {
         localStorage.setItem('problemReports', JSON.stringify([]));
         renderReports();
         updateReportBadge();
+
+        if (db) {
+            try {
+                const snap = await db.collection('reports').get();
+                const batch = db.batch();
+                snap.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            } catch (e) {
+                console.warn('Clear reports from Firestore error:', e);
+            }
+        }
     }
+}
+
+function openReportImageModal(imgSrc, caption = '') {
+    const modal = document.getElementById('reportImageModal');
+    const img = document.getElementById('reportImageModalImg');
+    const cap = document.getElementById('reportImageModalCaption');
+    if (!modal || !img) return;
+    img.src = imgSrc;
+    if (cap) cap.innerText = caption || 'ภาพที่แนบมากับรายงานปัญหา';
+    modal.classList.remove('modal-hidden');
+}
+
+function closeReportImageModal() {
+    const modal = document.getElementById('reportImageModal');
+    if (modal) modal.classList.add('modal-hidden');
 }
 
 function updateReportBadge() {

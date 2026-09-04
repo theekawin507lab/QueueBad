@@ -358,7 +358,61 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Registration Error:', error);
             let message = 'เกิดข้อผิดพลาดในการลงทะเบียน กรุณาลองใหม่อีกครั้ง';
             if (error.code === 'auth/email-already-in-use') {
-                message = 'อีเมลนี้ถูกใช้งานในระบบแล้ว กรุณาใช้อีเมลอื่น หรือไปที่หน้าเข้าสู่ระบบ';
+                // ตรวจสอบกรณี Admin เพิ่งลบข้อมูลผู้เล่นออกจาก Firestore เพื่อให้ลงทะเบียนใหม่
+                try {
+                    const existingCredential = await auth.signInWithEmailAndPassword(email, password);
+                    const existingUser = existingCredential.user;
+                    const existingDoc = await db.collection('users').doc(existingUser.uid).get();
+
+                    if (!existingDoc.exists) {
+                        // บัญชีถูกลบข้อมูลออกจาก Firestore จริง -> ทำการลงทะเบียนใหม่ด้วย UID เดิมทันที
+                        await existingUser.updateProfile({ displayName: nickname });
+
+                        const newUserData = {
+                            uid: existingUser.uid,
+                            email: email,
+                            username: username || '',
+                            nickname: nickname,
+                            firstName: firstName,
+                            lastName: lastName,
+                            studentId: studentId || '',
+                            phone: phone,
+                            userStatus: userStatus,
+                            fieldGroup: fieldGroup || '',
+                            faculty: faculty || '',
+                            major: major || '',
+                            role: 'player',
+                            isPresent: true,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+
+                        await db.collection('users').doc(existingUser.uid).set(newUserData);
+                        await db.collection('players').doc(existingUser.uid).set({
+                            uid: existingUser.uid,
+                            name: nickname,
+                            fullName: `${firstName} ${lastName}`,
+                            isPresent: true,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                        localStorage.setItem('isPlayerLoggedIn', 'true');
+                        localStorage.setItem('playerUid', existingUser.uid);
+                        localStorage.setItem('playerNickname', nickname);
+                        localStorage.setItem('playerData', JSON.stringify(newUserData));
+                        sessionStorage.setItem('isPlayerLoggedIn', 'true');
+                        sessionStorage.setItem('playerUid', existingUser.uid);
+                        sessionStorage.setItem('playerNickname', nickname);
+                        sessionStorage.setItem('playerData', JSON.stringify(newUserData));
+
+                        alert(`ลงทะเบียนข้อมูลใหม่สำเร็จ!\nยินดีต้อนรับคุณ "${nickname}" เข้าสู่ระบบจัดคิว`);
+                        window.location.href = 'public.html';
+                        return;
+                    } else {
+                        message = 'อีเมลนี้ถูกใช้งานในระบบแล้ว กรุณาใช้อีเมลอื่น หรือไปที่หน้าเข้าสู่ระบบ';
+                    }
+                } catch (reAuthErr) {
+                    message = 'อีเมลนี้เคยลงทะเบียนไว้แล้ว (หาก Admin ได้ลบข้อมูลเดิมออกเพื่อแก้ไข กรุณากรอกรหัสผ่านเดิมที่เคยใช้ หรือไปที่หน้าเข้าสู่ระบบ)';
+                }
             } else if (error.code === 'auth/invalid-email') {
                 message = 'รูปแบบอีเมลไม่ถูกต้อง';
             } else if (error.code === 'auth/weak-password') {
