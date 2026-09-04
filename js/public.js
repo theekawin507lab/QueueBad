@@ -503,8 +503,9 @@ function initProfileUI() {
     if (!authNavContainer) return;
 
     if (isPlayerLoggedIn) {
-        const nickname = sessionStorage.getItem('playerNickname') || 'ผู้เล่น';
-        const rawData = sessionStorage.getItem('playerData');
+        const nickname = sessionStorage.getItem('playerNickname') || localStorage.getItem('playerNickname') || 'ผู้เล่น';
+        const playerUid = sessionStorage.getItem('playerUid') || localStorage.getItem('playerUid');
+        const rawData = sessionStorage.getItem('playerData') || localStorage.getItem('playerData');
         if (rawData) {
             try {
                 currentUserProfile = JSON.parse(rawData);
@@ -522,6 +523,19 @@ function initProfileUI() {
         populateProfileDrawer(nickname, currentUserProfile);
         checkMyQueueStatus();
         updateSelfPresenceUI();
+
+        // ซิงค์ข้อมูลโปรไฟล์สดจาก Firestore 'users'
+        if (db && playerUid) {
+            db.collection('users').doc(playerUid).get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    currentUserProfile = { ...(currentUserProfile || {}), ...data };
+                    localStorage.setItem('playerData', JSON.stringify(currentUserProfile));
+                    sessionStorage.setItem('playerData', JSON.stringify(currentUserProfile));
+                    populateProfileDrawer(currentUserProfile.nickname || nickname, currentUserProfile);
+                }
+            }).catch(e => console.warn('Could not sync user profile on init:', e));
+        }
     } else {
         authNavContainer.innerHTML = `
             <a href="login.html"
@@ -539,20 +553,24 @@ function populateProfileDrawer(nickname, profile) {
     const avatar = document.getElementById('profileAvatar');
     const nickEl = document.getElementById('profileNickname');
     const fullEl = document.getElementById('profileFullName');
+    const roleEl = document.getElementById('profileRole');
     const stdEl = document.getElementById('profileStudentId');
     const phoneEl = document.getElementById('profilePhone');
+    const yearEl = document.getElementById('profileYear');
+    const grpEl = document.getElementById('profileFieldGroup');
     const facEl = document.getElementById('profileFaculty');
     const majEl = document.getElementById('profileMajor');
-    const yearEl = document.getElementById('profileYear');
 
     if (avatar) avatar.textContent = (nickname || 'P').charAt(0).toUpperCase();
-    if (nickEl) nickEl.textContent = nickname;
+    if (nickEl) nickEl.textContent = nickname || '-';
     if (fullEl) fullEl.textContent = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'ผู้เล่นทั่วไป';
+    if (roleEl) roleEl.textContent = profile.userStatus || 'ผู้เล่นทั่วไป';
     if (stdEl) stdEl.textContent = profile.studentId || '-';
     if (phoneEl) phoneEl.textContent = profile.phone || '-';
+    if (yearEl) yearEl.textContent = profile.userStatus || (profile.year ? `ปี ${profile.year}` : '-');
+    if (grpEl) grpEl.textContent = profile.fieldGroup || '-';
     if (facEl) facEl.textContent = profile.faculty || '-';
     if (majEl) majEl.textContent = profile.major || '-';
-    if (yearEl) yearEl.textContent = profile.year ? `ปี ${profile.year}` : '-';
 }
 
 // อัปเดต UI ของสวิตช์เช็คชื่อมาสนาม (Self Presence)
@@ -1061,8 +1079,30 @@ async function cancelOrLeaveMatch(matchId) {
 function openProfileDrawer() {
     const drawer = document.getElementById('profileDrawer');
     if (drawer) {
+        const nickname = sessionStorage.getItem('playerNickname') || localStorage.getItem('playerNickname') || 'ผู้เล่น';
+        const raw = localStorage.getItem('playerData') || sessionStorage.getItem('playerData');
+        if (raw) {
+            try {
+                currentUserProfile = JSON.parse(raw);
+            } catch (e) {}
+        }
+        populateProfileDrawer(nickname, currentUserProfile);
+
         drawer.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+
+        const playerUid = sessionStorage.getItem('playerUid') || localStorage.getItem('playerUid');
+        if (db && playerUid) {
+            db.collection('users').doc(playerUid).get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    currentUserProfile = { ...(currentUserProfile || {}), ...data };
+                    localStorage.setItem('playerData', JSON.stringify(currentUserProfile));
+                    sessionStorage.setItem('playerData', JSON.stringify(currentUserProfile));
+                    populateProfileDrawer(currentUserProfile.nickname || nickname, currentUserProfile);
+                }
+            }).catch(e => console.warn('Could not sync user profile on open drawer:', e));
+        }
     }
 }
 
@@ -1169,48 +1209,257 @@ window.onload = () => {
 // แก้ไขข้อมูลโปรไฟล์ผู้เล่น (Edit Profile)
 // =============================================
 
-// ข้อมูลหลักสูตรแบบย่อสำหรับ Cascade dropdown ในหน้า public
-const _FACULTY_MAP = {
-    "วิทยาศาสตร์สุขภาพ": ["คณะแพทยศาสตร์","คณะทันตแพทยศาสตร์","คณะเภสัชศาสตร์","คณะพยาบาลศาสตร์","คณะสหเวชศาสตร์","คณะสาธารณสุขศาสตร์","คณะวิทยาศาสตร์การแพทย์"],
-    "วิทยาศาสตร์และเทคโนโลยี": ["คณะเทคโนโลยีสารสนเทศและการสื่อสาร (ICT)","คณะวิศวกรรมศาสตร์","คณะวิทยาศาสตร์","คณะเกษตรศาสตร์และทรัพยากรธรรมชาติ","คณะพลังงานและสิ่งแวดล้อม","คณะสถาปัตยกรรมศาสตร์และศิลปกรรมศาสตร์"],
-    "มนุษยศาสตร์และสังคมศาสตร์": ["คณะนิติศาสตร์","คณะรัฐศาสตร์และสังคมศาสตร์","คณะบริหารธุรกิจและนิเทศศาสตร์ (BCA)","คณะศิลปศาสตร์","วิทยาลัยการศึกษา","วิทยาลัยการจัดการ (กรุงเทพฯ)"]
+// ข้อมูลหลักสูตรของมหาวิทยาลัยพะเยา (กลุ่มวิชา -> คณะ -> สาขาวิชา)
+const UP_CURRICULUM = {
+    "วิทยาศาสตร์สุขภาพ": {
+        "คณะแพทยศาสตร์": [
+            "แพทยศาสตรบัณฑิต (พ.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาปฏิบัติการฉุกเฉินการแพทย์"
+        ],
+        "คณะทันตแพทยศาสตร์": [
+            "ทันตแพทยศาสตรบัณฑิต (ท.บ.)"
+        ],
+        "คณะเภสัชศาสตร์": [
+            "เภสัชศาสตรบัณฑิต สาขาวิชาการบริบาลทางเภสัชกรรม (ภ.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาวิทยาศาสตร์เครื่องสำอาง (วท.บ.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชานวัตกรรมทางเภสัชศาสตร์ (วท.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชานวัตกรรมทางเภสัชศาสตร์ (ปร.ด.)"
+        ],
+        "คณะพยาบาลศาสตร์": [
+            "พยาบาลศาสตรบัณฑิต (พย.บ.)",
+            "พยาบาลศาสตรมหาบัณฑิต สาขาวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ (พย.ม.)"
+        ],
+        "คณะสหเวชศาสตร์": [
+            "วิทยาศาสตรบัณฑิต สาขาวิชาเทคนิคการแพทย์ (วท.บ.)",
+            "กายภาพบำบัดบัณฑิต (กภ.บ.)"
+        ],
+        "คณะสาธารณสุขศาสตร์": [
+            "การแพทย์แผนไทยประยุกต์บัณฑิต (พทป.บ.)",
+            "การแพทย์แผนจีนบัณฑิต (พจ.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาการส่งเสริมสุขภาพ (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาอนามัยสิ่งแวดล้อม (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาอาชีวอนามัยและความปลอดภัย (วท.บ.)",
+            "สาธารณสุขศาสตรบัณฑิต สาขาวิชาอนามัยชุมชน (ส.บ.)",
+            "สาธารณสุขศาสตรมหาบัณฑิต (ส.ม.)",
+            "สาธารณสุขศาสตรดุษฎีบัณฑิต (ส.ด.)"
+        ],
+        "คณะวิทยาศาสตร์การแพทย์": [
+            "วิทยาศาสตรบัณฑิต สาขาวิชาโภชนาการและการกำหนดอาหาร (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาจุลชีววิทยา (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาชีวเคมี (วท.บ.)"
+        ]
+    },
+    "วิทยาศาสตร์และเทคโนโลยี": {
+        "คณะเทคโนโลยีสารสนเทศและการสื่อสาร (ICT)": [
+            "ศิลปกรรมศาสตรบัณฑิต สาขาวิชาคอมพิวเตอร์กราฟิกและมัลติมีเดีย (ศป.บ.)",
+            "บริหารธุรกิจบัณฑิต สาขาวิชาธุรกิจดิจิทัล (บธ.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาเทคโนโลยีสารสนเทศ (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาภูมิสารสนเทศศาสตร์ (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาวิทยาการข้อมูลและการประยุกต์ (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาวิทยาการคอมพิวเตอร์ (วท.บ.)",
+            "วิศวกรรมศาสตรบัณฑิต สาขาวิชาวิศวกรรมคอมพิวเตอร์ (วศ.บ.)",
+            "วิศวกรรมศาสตรบัณฑิต สาขาวิชาวิศวกรรมซอฟต์แวร์ (วศ.บ.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาภูมิสารสนเทศประยุกต์ (วท.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาการจัดการเทคโนโลยีและข้อมูลดิจิทัล (วท.ม.)",
+            "วิศวกรรมมหาบัณฑิต สาขาวิชาวิศวกรรมคอมพิวเตอร์ (วศ.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาวิทยาการข้อมูลเชิงพื้นที่ (วท.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาภูมิสารสนเทศประยุกต์ (ปร.ด.)",
+            "วิทยาศาสตรดุษฎีบัณฑิต สาขาวิชาวิทยาการข้อมูลเชิงพื้นที่ (วท.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาวิศวกรรมคอมพิวเตอร์ (ปร.ด.)"
+        ],
+        "คณะวิศวกรรมศาสตร์": [
+            "วิศวกรรมศาสตรบัณฑิต สาขาวิชาวิศวกรรมเครื่องกล (วศ.บ.)",
+            "วิศวกรรมศาสตรบัณฑิต สาขาวิชาวิศวกรรมโยธา (วศ.บ.)",
+            "วิศวกรรมศาสตรบัณฑิต สาขาวิศวกรรมไฟฟ้า (วศ.บ.)",
+            "วิศวกรรมศาสตรบัณฑิต สาขาวิศวกรรมอุตสาหการ (วศ.บ.)",
+            "วิศวกรรมศาสตรมหาบัณฑิต สาขาวิชาวิศวกรรมเครื่องกล (วศ.ม.)",
+            "วิศวกรรมศาสตรมหาบัณฑิต สาขาวิชาวิศวกรรมโยธา (วศ.ม.)",
+            "วิศวกรรมศาสตรมหาบัณฑิต สาขาวิชาวิศวกรรมไฟฟ้า (วศ.ม.)",
+            "วิศวกรรมศาสตรมหาบัณฑิต สาขาวิศวกรรมและเทคโนโลยีระบบราง (วศ.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาวิศวกรรมไฟฟ้า (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาวิศวกรรมโยธา (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิศวกรรมและเทคโนโลยีระบบราง (ปร.ด.)"
+        ],
+        "คณะวิทยาศาสตร์": [
+            "วิทยาศาสตรบัณฑิต สาขาวิชาเคมี (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาคณิตศาสตร์ (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาชีววิทยา (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาฟิสิกส์ (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาวิทยาศาสตร์การออกกำลังกายและการกีฬา (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาสถิติประยุกต์และการจัดการข้อมูล (วท.บ.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาคณิตศาสตร์ (วท.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาชีววิทยา (วท.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาวิทยาศาสตร์การออกกำลังกายและการกีฬา (วท.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาเคมีประยุกต์ (วท.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาคณิตศาสตร์ (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาวิทยาศาสตร์ประยุกต์ (ปร.ด.)",
+            "วิทยาศาสตรดุษฎีบัณฑิต สาขาวิชาวิทยาศาสตร์การออกกำลังกายและการกีฬา (วท.ด.)",
+            "วิทยาศาสตรดุษฎีบัณฑิต สาขาวิชาชีววิทยา (วท.ด.)"
+        ],
+        "คณะเกษตรศาสตร์และทรัพยากรธรรมชาติ": [
+            "วิทยาศาสตรบัณฑิต สาขาวิชาเกษตรศาสตร์ (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาเทคโนโลยีนวัตกรรมการประมง (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาความปลอดภัยทางอาหาร (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาวิทยาศาสตร์และเทคโนโลยีการอาหาร (วท.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาสัตวศาสตร์ (วท.บ.)",
+            "เทคโนโลยีบัณฑิต สาขาวิชาเทคโนโลยีการเกษตร (ทล.บ.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาเทคโนโลยีชีวภาพ (วท.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิทยาศาสตร์การอาหารและการจัดการความปลอดภัยทางอาหาร (วท.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาสัตวศาสตร์ (วท.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชานวัตกรรมผลิตภาพทางทรัพยากรธรรมชาติและการจัดการ (ปร.ด.)"
+        ],
+        "คณะพลังงานและสิ่งแวดล้อม": [
+            "วิศวกรรมศาสตรบัณฑิต สาขาวิชาวิศวกรรมสิ่งแวดล้อม (วศ.บ.)",
+            "วิทยาศาสตรบัณฑิต สาขาวิชาการจัดการพลังงานและสิ่งแวดล้อม (วท.บ.)",
+            "วิศวกรรมศาสตรมหาบัณฑิต สาขาวิชาการจัดการพลังงานและนวัตกรรม (วศ.ม.)",
+            "วิทยาศาสตรมหาบัณฑิต สาขาวิชาเทคโนโลยีและการจัดการสิ่งแวดล้อม (วท.ม.)",
+            "วิศวกรรมศาสตรมหาบัณฑิต สาขาวิชาวิศวกรรมสิ่งแวดล้อม (วศ.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาเทคโนโลยีและการจัดการสิ่งแวดล้อม (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาการจัดการพลังงานและสมาร์ตกริดเทคโนโลยี (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาการจัดการพลังงานและนวัตกรรม (ปร.ด.)"
+        ],
+        "คณะสถาปัตยกรรมศาสตร์และศิลปกรรมศาสตร์": [
+            "ศิลปกรรมศาสตรบัณฑิต สาขาวิชาดนตรีและนาฏศิลป์ (ศป.บ.)",
+            "ศิลปกรรมศาสตรบัณฑิต สาขาวิชาศิลปะและการออกแบบ (ศป.บ.)",
+            "สถาปัตยกรรมศาสตรบัณฑิต สาขาวิชาสถาปัตยกรรม (สถ.บ.)",
+            "สถาปัตยกรรมศาสตรบัณฑิต สาขาวิชาสถาปัตยกรรมภายใน (สถ.บ.)",
+            "สถาปัตยกรรมศาสตรมหาบัณฑิต สาขาวิชาสหวิทยาการสถาปัตยกรรมสร้างสรรค์ (สถ.ม.)"
+        ]
+    },
+    "มนุษยศาสตร์และสังคมศาสตร์": {
+        "คณะนิติศาสตร์": [
+            "นิติศาสตรบัณฑิต (น.บ.)",
+            "นิติศาสตรมหาบัณฑิต (น.ม.)",
+            "นิติศาสตรดุษฎีบัณฑิต (น.ด.)"
+        ],
+        "คณะรัฐศาสตร์และสังคมศาสตร์": [
+            "รัฐประศาสนศาสตรบัณฑิต สาขาวิชาการจัดการนวัตกรรมสาธารณะ (รป.บ.)",
+            "รัฐศาสตรบัณฑิต (ร.บ.)",
+            "ศิลปศาสตรบัณฑิต สาขาวิชาพัฒนาสังคม (ศศ.บ.)",
+            "รัฐประศาสนศาสตรมหาบัณฑิต สาขาวิชานโยบายสาธารณะ (รป.ม.)"
+        ],
+        "คณะบริหารธุรกิจและนิเทศศาสตร์ (BCA)": [
+            "เศรษฐศาสตรบัณฑิต (ศ.บ.)",
+            "นิเทศศาสตรบัณฑิต สาขาวิชาการจัดการการสื่อสาร (นศ.บ.)",
+            "นิเทศศาสตรบัณฑิต สาขาวิชาการสื่อสารสื่อใหม่ (นศ.บ.)",
+            "บริหารธุรกิจบัณฑิต สาขาวิชาการเงินและการลงทุน (บธ.บ.)",
+            "บริหารธุรกิจบัณฑิต สาขาวิชาการจัดการธุรกิจ (บธ.บ.)",
+            "บริหารธุรกิจบัณฑิต สาขาวิชาการตลาดดิจิทัล (บธ.บ.)",
+            "บัญชีบัณฑิต (บช.บ.)",
+            "ศิลปศาสตรบัณฑิต สาขาวิชาการท่องเที่ยวและการโรงแรม (ศศ.บ.)",
+            "บริหารธุรกิจมหาบัณฑิต (บธ.ม. / MBA)",
+            "ศิลปศาสตรมหาบัณฑิต สาขาวิชาการจัดการการท่องเที่ยวและการโรงแรม (ศศ.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาการจัดการการท่องเที่ยวและโรงแรม (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาบริหารธุรกิจ (ปร.ด.)"
+        ],
+        "คณะศิลปศาสตร์": [
+            "ศิลปศาสตรบัณฑิต สาขาวิชาภาษาไทย (ศศ.บ.)",
+            "ศิลปศาสตรบัณฑิต สาขาวิชาภาษาจีน (ศศ.บ.)",
+            "ศิลปศาสตรบัณฑิต สาขาวิชาภาษาญี่ปุ่น (ศศ.บ.)",
+            "ศิลปศาสตรบัณฑิต สาขาวิชาภาษาฝรั่งเศส (ศศ.บ.)",
+            "ศิลปศาสตรบัณฑิต สาขาวิชาภาษาอังกฤษ (ศศ.บ.)",
+            "ศิลปศาสตรมหาบัณฑิต สาขาวิชาภาษาไทย (ศศ.ม.)",
+            "ศิลปศาสตรมหาบัณฑิต สาขาวิชาภาษาศาสตร์ประยุกต์ (ศศ.ม.)",
+            "ศิลปศาสตรมหาบัณฑิต สาขาวิชาภาษาอังกฤษ (ศศ.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาภาษาไทย (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาภาษาศาสตร์ประยุกต์ (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาภาษาอังกฤษ (ปร.ด.)"
+        ],
+        "วิทยาลัยการศึกษา": [
+            "การศึกษาบัณฑิต สาขาวิชาการศึกษา (กศ.บ.)",
+            "การศึกษามหาบัณฑิต สาขาวิชาการบริหารการศึกษา (กศ.ม.)",
+            "การศึกษามหาบัณฑิต สาขาวิชาหลักสูตรและการสอน (กศ.ม.)",
+            "การศึกษามหาบัณฑิต สาขาวิชานวัตกรทางการศึกษา (กศ.ม.)",
+            "การศึกษามหาบัณฑิต สาขาวิชาสะเต็มศึกษา (กศ.ม.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาการบริหารการศึกษา (ปร.ด.)",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาหลักสูตรและการสอน (ปร.ด.)"
+        ],
+        "วิทยาลัยการจัดการ (กรุงเทพฯ)": [
+            "บริหารธุรกิจมหาบัณฑิต (MBA)",
+            "การศึกษามหาบัณฑิต สาขาวิชาการบริหารการศึกษา",
+            "ศิลปศาสตรมหาบัณฑิต สาขาวิชาการจัดการการท่องเที่ยว โรงแรม และธุรกิจบริการ",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาการบริหารการศึกษา",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาการจัดการการท่องเที่ยว โรงแรม และธุรกิจบริการ",
+            "ปรัชญาดุษฎีบัณฑิต สาขาวิชาบริหารธุรกิจ"
+        ]
+    }
 };
 
-const _STUDENT_STATUSES_SET = new Set(['นิสิต/นักศึกษา','บัณฑิตศึกษา (ป.โท)','บัณฑิตศึกษา (ป.เอก)']);
+const _STUDENT_STATUSES_SET = new Set(['นิสิต/นักศึกษา', 'บัณฑิตศึกษา (ป.โท)', 'บัณฑิตศึกษา (ป.เอก)']);
+
+function populateEditFaculty(group) {
+    const sel = document.getElementById('editFaculty');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- เลือกคณะ --</option>';
+    if (!group || !UP_CURRICULUM[group]) return;
+    Object.keys(UP_CURRICULUM[group]).forEach(faculty => {
+        const opt = document.createElement('option');
+        opt.value = faculty;
+        opt.textContent = faculty;
+        sel.appendChild(opt);
+    });
+}
+
+function populateEditMajor(group, faculty) {
+    const sel = document.getElementById('editMajor');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- เลือกสาขาวิชา --</option>';
+    if (!group || !faculty) return;
+    const majors = (UP_CURRICULUM[group] || {})[faculty] || [];
+    majors.forEach(major => {
+        const opt = document.createElement('option');
+        opt.value = major;
+        opt.textContent = major;
+        sel.appendChild(opt);
+    });
+}
 
 function initEditProfileCascade() {
     const statusSel = document.getElementById('editUserStatus');
     const fieldGroupSel = document.getElementById('editFieldGroup');
     const facultySel = document.getElementById('editFaculty');
+    const majorSel = document.getElementById('editMajor');
+    const fgWrap = document.getElementById('editFieldGroupWrap');
+    const facWrap = document.getElementById('editFacultyWrap');
+    const majWrap = document.getElementById('editMajorWrap');
     if (!statusSel) return;
 
     statusSel.addEventListener('change', () => {
-        const show = _STUDENT_STATUSES_SET.has(statusSel.value);
-        document.getElementById('editFieldGroupWrap').style.display = show ? '' : 'none';
-        document.getElementById('editFacultyWrap').style.display = 'none';
-        document.getElementById('editMajorWrap').style.display = 'none';
-        if (!show) { fieldGroupSel.value = ''; facultySel.innerHTML = '<option value="">-- เลือกคณะ --</option>'; }
+        const isStudent = _STUDENT_STATUSES_SET.has(statusSel.value);
+        if (fgWrap) fgWrap.style.display = isStudent ? '' : 'none';
+        if (facWrap) facWrap.style.display = (isStudent && fieldGroupSel && fieldGroupSel.value) ? '' : 'none';
+        if (majWrap) majWrap.style.display = (isStudent && facultySel && facultySel.value) ? '' : 'none';
+        if (!isStudent) {
+            if (fieldGroupSel) fieldGroupSel.value = '';
+            populateEditFaculty('');
+            populateEditMajor('', '');
+        }
     });
 
-    fieldGroupSel.addEventListener('change', () => {
-        const group = fieldGroupSel.value;
-        facultySel.innerHTML = '<option value="">-- เลือกคณะ --</option>';
-        (_FACULTY_MAP[group] || []).forEach(f => {
-            const o = document.createElement('option'); o.value = f; o.textContent = f; facultySel.appendChild(o);
+    if (fieldGroupSel) {
+        fieldGroupSel.addEventListener('change', () => {
+            const group = fieldGroupSel.value;
+            populateEditFaculty(group);
+            populateEditMajor('', '');
+            if (facWrap) facWrap.style.display = group ? '' : 'none';
+            if (majWrap) majWrap.style.display = 'none';
         });
-        document.getElementById('editFacultyWrap').style.display = group ? '' : 'none';
-        document.getElementById('editMajorWrap').style.display = 'none';
-    });
+    }
 
-    facultySel.addEventListener('change', () => {
-        document.getElementById('editMajorWrap').style.display = facultySel.value ? '' : 'none';
-    });
+    if (facultySel) {
+        facultySel.addEventListener('change', () => {
+            const group = fieldGroupSel ? fieldGroupSel.value : '';
+            const faculty = facultySel.value;
+            populateEditMajor(group, faculty);
+            if (majWrap) majWrap.style.display = faculty ? '' : 'none';
+        });
+    }
 }
 
 function openEditProfileModal() {
-    const raw = localStorage.getItem('playerData');
-    if (!raw) return;
-    const pd = JSON.parse(raw);
+    const raw = localStorage.getItem('playerData') || sessionStorage.getItem('playerData');
+    if (!raw && !currentUserProfile) return;
+    const pd = raw ? JSON.parse(raw) : (currentUserProfile || {});
 
     document.getElementById('editNickname').value   = pd.nickname   || '';
     document.getElementById('editFirstName').value  = pd.firstName  || '';
@@ -1219,26 +1468,34 @@ function openEditProfileModal() {
     document.getElementById('editPhone').value      = pd.phone      || '';
 
     // สถานะผู้ใช้ (รองรับทั้ง userStatus ใหม่ และ year เก่า)
-    const statusVal = pd.userStatus || pd.year || '';
+    const statusVal = pd.userStatus || (pd.year ? 'นิสิต/นักศึกษา' : '');
     document.getElementById('editUserStatus').value = statusVal;
 
     // ซ่อน/แสดง field group ตามสถานะ
     const showGroup = _STUDENT_STATUSES_SET.has(statusVal);
-    document.getElementById('editFieldGroupWrap').style.display = showGroup ? '' : 'none';
-    document.getElementById('editFacultyWrap').style.display    = showGroup && pd.fieldGroup ? '' : 'none';
-    document.getElementById('editMajorWrap').style.display      = showGroup && pd.faculty    ? '' : 'none';
+    const fgWrap = document.getElementById('editFieldGroupWrap');
+    const facWrap = document.getElementById('editFacultyWrap');
+    const majWrap = document.getElementById('editMajorWrap');
+
+    if (fgWrap) fgWrap.style.display = showGroup ? '' : 'none';
+    if (facWrap) facWrap.style.display = (showGroup && pd.fieldGroup) ? '' : 'none';
+    if (majWrap) majWrap.style.display = (showGroup && pd.faculty) ? '' : 'none';
 
     if (showGroup) {
-        document.getElementById('editFieldGroup').value = pd.fieldGroup || '';
+        const fgEl = document.getElementById('editFieldGroup');
+        if (fgEl) fgEl.value = pd.fieldGroup || '';
+
         // populate faculty dropdown
-        const fg = pd.fieldGroup || '';
-        const facSel = document.getElementById('editFaculty');
-        facSel.innerHTML = '<option value="">-- เลือกคณะ --</option>';
-        (_FACULTY_MAP[fg] || []).forEach(f => {
-            const o = document.createElement('option'); o.value = f; o.textContent = f; facSel.appendChild(o);
-        });
-        facSel.value = pd.faculty || '';
-        document.getElementById('editMajor').value = pd.major || '';
+        populateEditFaculty(pd.fieldGroup);
+        const facEl = document.getElementById('editFaculty');
+        if (facEl) facEl.value = pd.faculty || '';
+
+        // populate major dropdown
+        if (pd.faculty) {
+            populateEditMajor(pd.fieldGroup, pd.faculty);
+            const majEl = document.getElementById('editMajor');
+            if (majEl) majEl.value = pd.major || '';
+        }
     }
 
     document.getElementById('editProfileError').classList.add('hidden');
@@ -1269,9 +1526,16 @@ async function saveEditProfile() {
     if (!phone)      { errBox.textContent = 'กรุณากรอกเบอร์โทร';    errBox.classList.remove('hidden'); return; }
     if (!userStatus) { errBox.textContent = 'กรุณาเลือกสถานะผู้ใช้'; errBox.classList.remove('hidden'); return; }
 
-    const raw = localStorage.getItem('playerData');
+    const isStudent = _STUDENT_STATUSES_SET.has(userStatus);
+    if (isStudent) {
+        if (!fieldGroup) { errBox.textContent = 'กรุณาเลือกกลุ่มวิชา'; errBox.classList.remove('hidden'); return; }
+        if (!faculty)    { errBox.textContent = 'กรุณาเลือกคณะ';       errBox.classList.remove('hidden'); return; }
+        if (!major)      { errBox.textContent = 'กรุณาเลือกสาขาวิชา';  errBox.classList.remove('hidden'); return; }
+    }
+
+    const raw = localStorage.getItem('playerData') || sessionStorage.getItem('playerData');
     const oldData = raw ? JSON.parse(raw) : {};
-    const uid = localStorage.getItem('playerUid');
+    const uid = localStorage.getItem('playerUid') || sessionStorage.getItem('playerUid') || (typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null);
 
     const updatedData = {
         ...oldData,
@@ -1281,9 +1545,9 @@ async function saveEditProfile() {
         phone,
         studentId: studentId || '',
         userStatus,
-        fieldGroup: fieldGroup || '',
-        faculty: faculty || '',
-        major: major || ''
+        fieldGroup: isStudent ? (fieldGroup || '') : '',
+        faculty: isStudent ? (faculty || '') : '',
+        major: isStudent ? (major || '') : ''
     };
 
     // อัปเดต localStorage / sessionStorage
@@ -1298,13 +1562,15 @@ async function saveEditProfile() {
             await db.collection('users').doc(uid).update({
                 nickname, firstName, lastName, phone,
                 studentId: studentId || '',
-                userStatus, fieldGroup: fieldGroup || '',
-                faculty: faculty || '', major: major || ''
+                userStatus,
+                fieldGroup: isStudent ? (fieldGroup || '') : '',
+                faculty: isStudent ? (faculty || '') : '',
+                major: isStudent ? (major || '') : ''
             });
             // อัปเดตชื่อใน players collection ด้วย
             await db.collection('players').doc(uid).update({
                 name: nickname,
-                fullName: `${firstName} ${lastName}`
+                fullName: `${firstName} ${lastName}`.trim()
             });
         } catch (e) {
             console.warn('Firestore update warning:', e);
@@ -1313,6 +1579,7 @@ async function saveEditProfile() {
 
     closeEditProfileModal();
     currentUserProfile = updatedData;
-    renderProfileDrawer(updatedData);
+    populateProfileDrawer(nickname, updatedData);
+    initProfileUI();
     alert('บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว!');
 }
