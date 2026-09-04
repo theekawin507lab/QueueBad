@@ -13,7 +13,12 @@ const MAX_PLAYERS = 4;
 // โหลดรายชื่อผู้เล่นที่พร้อม
 function loadAvailablePlayers() {
     const rawPlayers = JSON.parse(localStorage.getItem('badmintonPlayers')) || [];
-    const players = rawPlayers.map(p => typeof p === 'string' ? { name: p, isPresent: true } : p);
+    const players = rawPlayers
+        .filter(p => {
+            const n = typeof p === 'string' ? p : (p && p.name);
+            return n && !['วา-ขาจร', 'ยันต์69', 'คริสตัน', 'ชัยโรงสี'].includes(n.trim());
+        })
+        .map(p => typeof p === 'string' ? { name: p, isPresent: true } : p);
     return players.filter(p => p.isPresent).sort((a, b) => a.name.localeCompare(b.name));
 }
 

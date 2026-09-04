@@ -6,10 +6,13 @@
 let matches = JSON.parse(localStorage.getItem('badmintonMatches')) || [];
 let matchCounter = parseInt(localStorage.getItem('matchCounter')) || 1;
 
-let rawPlayers = JSON.parse(localStorage.getItem('badmintonPlayers')) || [
-    { name: 'วา-ขาจร', isPresent: true }, { name: 'ยันต์69', isPresent: true },
-    { name: 'คริสตัน', isPresent: true }, { name: 'ชัยโรงสี', isPresent: true }
-];
+const LEGACY_DUMMY_NAMES = ['วา-ขาจร', 'ยันต์69', 'คริสตัน', 'ชัยโรงสี'];
+
+let rawPlayers = JSON.parse(localStorage.getItem('badmintonPlayers')) || [];
+rawPlayers = rawPlayers.filter(p => {
+    const name = typeof p === 'string' ? p : (p && p.name);
+    return name && !LEGACY_DUMMY_NAMES.includes(name.trim());
+});
 let playerList = rawPlayers.map(p => typeof p === 'string' ? { name: p, isPresent: true } : p);
 
 let currentEditingMatchId = null;
@@ -57,12 +60,13 @@ async function syncPlayersToCloud() {
         const batch = db.batch();
         const currentNames = new Set(playerList.map(p => p.name));
 
-        // ลบผู้เล่นที่ไม่มีใน playerList ออกจาก Firestore
+        // ลบผู้เล่นที่ไม่มีใน playerList หรือเป็นชื่อตัวอย่างเดิม ออกจาก Firestore
         const snap = await db.collection('players').get();
         snap.forEach(doc => {
             const data = doc.data();
             const docName = data.name || data.nickname;
-            if (docName && !currentNames.has(docName)) {
+            const isLegacy = (docName && LEGACY_DUMMY_NAMES.includes(docName.trim())) || LEGACY_DUMMY_NAMES.includes(doc.id.trim());
+            if (isLegacy || (docName && !currentNames.has(docName))) {
                 batch.delete(doc.ref);
             }
         });
@@ -380,11 +384,35 @@ async function syncMatchesToCloud() {
     }
 }
 
+// ฟังก์ชันล้างรายชื่อตัวอย่างเก่าออกจาก Cloud ถาวร
+async function purgeLegacyDummyPlayers() {
+    if (!db) return;
+    try {
+        for (let name of LEGACY_DUMMY_NAMES) {
+            await db.collection('players').doc(name).delete().catch(() => {});
+            const snapP1 = await db.collection('players').where('name', '==', name).get().catch(() => null);
+            if (snapP1 && !snapP1.empty) snapP1.forEach(doc => doc.ref.delete().catch(() => {}));
+            const snapP2 = await db.collection('players').where('nickname', '==', name).get().catch(() => null);
+            if (snapP2 && !snapP2.empty) snapP2.forEach(doc => doc.ref.delete().catch(() => {}));
+
+            const snapU1 = await db.collection('users').where('nickname', '==', name).get().catch(() => null);
+            if (snapU1 && !snapU1.empty) snapU1.forEach(doc => doc.ref.delete().catch(() => {}));
+            const snapU2 = await db.collection('users').where('name', '==', name).get().catch(() => null);
+            if (snapU2 && !snapU2.empty) snapU2.forEach(doc => doc.ref.delete().catch(() => {}));
+        }
+    } catch (e) {
+        console.warn('Purge legacy players error:', e);
+    }
+}
+
 // เริ่มต้นระบบ Firestore สำหรับแอดมิน
 function initAdminFirestore() {
     if (!db) return;
     const badge = document.getElementById('adminCloudBadge');
     if (badge) badge.classList.remove('hidden');
+
+    // กวาดล้างชื่อตัวอย่างเก่าใน Firestore ทันทีที่เปิดหน้า
+    purgeLegacyDummyPlayers();
 
     // 1. ดักฟังการเปลี่ยนแปลงของ Matches (คิวการแข่งขัน) จาก Cloud แบบ Real-time
     db.collection('matches').onSnapshot((snapshot) => {
@@ -422,18 +450,19 @@ function initAdminFirestore() {
 
     // 2. ดักฟังผู้เล่นจาก Cloud (ซิงค์แบบ 2 ทาง รวมทั้งการเพิ่มและการลบ)
     db.collection('players').onSnapshot((snapshot) => {
-        if (snapshot.empty && playerList.length > 0) {
-            syncPlayersToCloud();
-            return;
-        }
-
         const cloudPlayers = [];
         snapshot.forEach(doc => {
             const pData = doc.data();
             const pName = pData.name || pData.nickname;
             if (pName && pName.trim()) {
+                const trimmedName = pName.trim();
+                // ถ้าเป็นชื่อตัวอย่างเดิม ให้ลบออกจาก Cloud ทันที
+                if (LEGACY_DUMMY_NAMES.includes(trimmedName) || LEGACY_DUMMY_NAMES.includes(doc.id.trim())) {
+                    doc.ref.delete().catch(() => {});
+                    return;
+                }
                 cloudPlayers.push({
-                    name: pName.trim(),
+                    name: trimmedName,
                     isPresent: pData.isPresent !== false,
                     uid: doc.id,
                     fullName: pData.fullName || ''

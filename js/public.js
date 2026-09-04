@@ -102,6 +102,8 @@ function initFirestoreListeners() {
         console.warn('Firestore Matches Listener Error:', error);
     });
 
+    const LEGACY_DUMMY_NAMES = ['วา-ขาจร', 'ยันต์69', 'คริสตัน', 'ชัยโรงสี'];
+
     // 2. ดักฟังรายชื่อผู้เล่นที่มาสนาม (Players Presence) แบบ Real-time
     db.collection('players').onSnapshot((snapshot) => {
         const cloudPlayers = [];
@@ -109,8 +111,12 @@ function initFirestoreListeners() {
             const data = doc.data();
             const name = data.name || data.nickname;
             if (name && name.trim()) {
+                const trimmedName = name.trim();
+                if (LEGACY_DUMMY_NAMES.includes(trimmedName) || LEGACY_DUMMY_NAMES.includes(doc.id.trim())) {
+                    return;
+                }
                 cloudPlayers.push({
-                    name: name.trim(),
+                    name: trimmedName,
                     isPresent: data.isPresent !== false,
                     fullName: data.fullName || '',
                     uid: doc.id
@@ -470,7 +476,12 @@ function renderOnlinePlayers(playersFromCloud = null) {
         players = playersFromCloud;
     } else {
         const rawPlayers = JSON.parse(localStorage.getItem('badmintonPlayers')) || [];
-        players = rawPlayers.map(p => typeof p === 'string' ? { name: p, isPresent: true } : p);
+        players = rawPlayers
+            .filter(p => {
+                const n = typeof p === 'string' ? p : (p && p.name);
+                return n && !['วา-ขาจร', 'ยันต์69', 'คริสตัน', 'ชัยโรงสี'].includes(n.trim());
+            })
+            .map(p => typeof p === 'string' ? { name: p, isPresent: true } : p);
     }
 
     allOnlinePlayersCache = players.filter(p => p && p.isPresent && p.name).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
