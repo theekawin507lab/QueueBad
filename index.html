@@ -301,27 +301,34 @@
             <p class="text-sm text-gray-500 text-center mb-6">คิวที่ <span id="modalMatchId" class="font-bold"></span> -
                 สนาม <span id="modalCourt" class="font-bold"></span></p>
 
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex justify-between items-center mb-4">
                 <div class="text-center w-[45%]">
                     <p id="modalTeamA" class="font-bold text-sm mb-2 text-blue-600 truncate"></p>
                     <input type="number" id="inputScoreA" min="0"
                         class="w-full text-center text-3xl border-2 rounded-lg py-3 font-bold focus:outline-none"
-                        required>
+                        placeholder="-">
                 </div>
                 <div class="font-black text-gray-300 text-xl">VS</div>
                 <div class="text-center w-[45%]">
                     <p id="modalTeamB" class="font-bold text-sm mb-2 text-red-600 truncate"></p>
                     <input type="number" id="inputScoreB" min="0"
                         class="w-full text-center text-3xl border-2 rounded-lg py-3 font-bold focus:outline-none"
-                        required>
+                        placeholder="-">
                 </div>
             </div>
+            <p class="text-[11px] text-center text-gray-400 mb-4">ไม่ต้องกรอกคะแนนก็สามารถจบเกมได้</p>
 
-            <div class="flex gap-3">
-                <button onclick="closeScoreModal()"
-                    class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-bold">ยกเลิก</button>
-                <button onclick="confirmScore()"
-                    class="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-bold">บันทึก & จบเกม</button>
+            <div class="flex flex-col gap-2">
+                <div class="flex gap-3">
+                    <button onclick="closeScoreModal()"
+                        class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-bold">ยกเลิก</button>
+                    <button onclick="confirmScore(true)"
+                        class="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-bold">บันทึก & จบเกม</button>
+                </div>
+                <button onclick="confirmScore(false)"
+                    class="w-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-2 rounded-lg text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+                    จบเกม (ไม่ระบุคะแนน)
+                </button>
             </div>
         </div>
     </div>

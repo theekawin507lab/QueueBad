@@ -481,16 +481,26 @@ function closeScoreModal() {
     currentEditingMatchId = null;
 }
 
-function confirmScore() {
+function confirmScore(withScore = true) {
     const scoreA = document.getElementById('inputScoreA').value;
     const scoreB = document.getElementById('inputScoreB').value;
-    if (scoreA === '' || scoreB === '') return alert('กรุณากรอกคะแนนให้ครบ');
+
+    // ถ้า withScore=true แต่กรอกมาแค่ฝั่งเดียว ให้เตือน
+    if (withScore && (scoreA !== '' || scoreB !== '') && (scoreA === '' || scoreB === '')) {
+        return alert('กรุณากรอกคะแนนให้ครบทั้งสองทีม หรือกด "จบเกม (ไม่ระบุคะแนน)" หากไม่ต้องการบันทึกคะแนน');
+    }
 
     const matchIndex = matches.findIndex(m => String(m.id) === String(currentEditingMatchId));
     if (matchIndex !== -1) {
         const courtNumber = matches[matchIndex].court;
-        matches[matchIndex].scoreA = parseInt(scoreA) || 0;
-        matches[matchIndex].scoreB = parseInt(scoreB) || 0;
+
+        if (withScore && scoreA !== '' && scoreB !== '') {
+            matches[matchIndex].scoreA = parseInt(scoreA) || 0;
+            matches[matchIndex].scoreB = parseInt(scoreB) || 0;
+        } else {
+            matches[matchIndex].scoreA = null;
+            matches[matchIndex].scoreB = null;
+        }
 
         const startTime = matches[matchIndex].startTime ? new Date(matches[matchIndex].startTime) : new Date();
         const validStartTime = isNaN(startTime.getTime()) ? new Date() : startTime;
@@ -506,6 +516,7 @@ function confirmScore() {
     }
     closeScoreModal();
 }
+
 
 // =============================================
 // ฟีเจอร์ 1: ระบบเรียกคิว Auto + Countdown 90s

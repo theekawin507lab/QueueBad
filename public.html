@@ -228,16 +228,20 @@
                                 <span class="font-semibold text-slate-700 dark:text-slate-200" id="profilePhone">-</span>
                             </div>
                             <div class="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-600">
-                                <span class="text-slate-500 dark:text-slate-400">คณะ</span>
-                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileFaculty">-</span>
+                                <span class="text-slate-500 dark:text-slate-400">สถานะผู้ใช้</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileYear">-</span>
                             </div>
                             <div class="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-600">
-                                <span class="text-slate-500 dark:text-slate-400">สาขาวิชา</span>
-                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileMajor">-</span>
+                                <span class="text-slate-500 dark:text-slate-400">กลุ่มวิชา</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileFieldGroup">-</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-600">
+                                <span class="text-slate-500 dark:text-slate-400">คณะ</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200 text-right max-w-[60%]" id="profileFaculty">-</span>
                             </div>
                             <div class="flex justify-between py-1">
-                                <span class="text-slate-500 dark:text-slate-400">ชั้นปี</span>
-                                <span class="font-semibold text-slate-700 dark:text-slate-200" id="profileYear">-</span>
+                                <span class="text-slate-500 dark:text-slate-400">สาขาวิชา</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-200 text-right max-w-[60%]" id="profileMajor">-</span>
                             </div>
                         </div>
                     </div>
@@ -265,14 +269,119 @@
 
                 <!-- Drawer Footer -->
                 <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex gap-3">
+                    <button onclick="openEditProfileModal()"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition shadow">
+                        แก้ไขข้อมูล
+                    </button>
                     <button onclick="logoutPlayer()"
-                        class="w-full bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 font-bold py-2.5 px-4 rounded-xl text-sm transition">
-                        ออกจากระบบโปรไฟล์
+                        class="flex-1 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 font-bold py-2.5 px-4 rounded-xl text-sm transition">
+                        ออกจากระบบ
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- =============================================
+         Edit Profile Modal
+         ============================================= -->
+    <div id="editProfileModal" class="modal-hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5 border-b dark:border-slate-700 pb-3">
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white">แก้ไขข้อมูลโปรไฟล์</h2>
+                <button onclick="closeEditProfileModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- ชื่อเล่น -->
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">ชื่อเล่น (Nickname) <span class="text-red-500">*</span></label>
+                    <input type="text" id="editNickname" maxlength="20"
+                        class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                </div>
+                <!-- ชื่อ - นามสกุล -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">ชื่อจริง <span class="text-red-500">*</span></label>
+                        <input type="text" id="editFirstName"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">นามสกุล <span class="text-red-500">*</span></label>
+                        <input type="text" id="editLastName"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                    </div>
+                </div>
+                <!-- รหัสนิสิต - เบอร์โทร -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">รหัสนิสิต</label>
+                        <input type="text" id="editStudentId" maxlength="11"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+                        <input type="tel" id="editPhone" inputmode="tel"
+                            class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                    </div>
+                </div>
+                <!-- สถานะผู้ใช้ -->
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">สถานะผู้ใช้ <span class="text-red-500">*</span></label>
+                    <select id="editUserStatus"
+                        class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                        <option value="">-- เลือกสถานะ --</option>
+                        <option value="นักเรียน">นักเรียน</option>
+                        <option value="นิสิต/นักศึกษา">นิสิต/นักศึกษา</option>
+                        <option value="บัณฑิตศึกษา (ป.โท)">บัณฑิตศึกษา (ป.โท)</option>
+                        <option value="บัณฑิตศึกษา (ป.เอก)">บัณฑิตศึกษา (ป.เอก)</option>
+                        <option value="บุคลากร/เจ้าหน้าที่มหาวิทยาลัย">บุคลากร/เจ้าหน้าที่มหาวิทยาลัย</option>
+                        <option value="บุคคลทั่วไป">บุคคลทั่วไป</option>
+                    </select>
+                </div>
+                <!-- กลุ่มวิชา / คณะ / สาขา (inject จาก JS) -->
+                <div id="editFieldGroupWrap">
+                    <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">กลุ่มวิชาที่ศึกษา</label>
+                    <select id="editFieldGroup"
+                        class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                        <option value="">-- เลือกกลุ่มวิชา --</option>
+                        <option value="วิทยาศาสตร์สุขภาพ">กลุ่มวิทยาศาสตร์สุขภาพ</option>
+                        <option value="วิทยาศาสตร์และเทคโนโลยี">กลุ่มวิทยาศาสตร์และเทคโนโลยี</option>
+                        <option value="มนุษยศาสตร์และสังคมศาสตร์">กลุ่มมนุษยศาสตร์และสังคมศาสตร์</option>
+                    </select>
+                </div>
+                <div id="editFacultyWrap">
+                    <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">คณะ</label>
+                    <select id="editFaculty"
+                        class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                        <option value="">-- เลือกคณะ --</option>
+                    </select>
+                </div>
+                <div id="editMajorWrap">
+                    <label class="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300">สาขาวิชา</label>
+                    <select id="editMajor"
+                        class="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                        <option value="">-- เลือกสาขาวิชา --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Error -->
+            <div id="editProfileError" class="hidden mt-3 bg-red-100 border-l-4 border-red-500 text-red-700 dark:bg-red-950/40 dark:text-red-300 p-3 rounded text-sm"></div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeEditProfileModal()"
+                    class="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 py-2.5 rounded-xl font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition">
+                    ยกเลิก
+                </button>
+                <button onclick="saveEditProfile()"
+                    class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow">
+                    บันทึกข้อมูล
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- =============================================
          Floating Action Button (ปุ่มลอยสร้างคิวสำหรับมือถือ)

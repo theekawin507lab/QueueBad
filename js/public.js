@@ -1133,4 +1133,157 @@ window.onload = () => {
     loadData();
     initProfileUI();
     startLiveTimer();
+    initEditProfileCascade();
 };
+
+// =============================================
+// แก้ไขข้อมูลโปรไฟล์ผู้เล่น (Edit Profile)
+// =============================================
+
+// ข้อมูลหลักสูตรแบบย่อสำหรับ Cascade dropdown ในหน้า public
+const _FACULTY_MAP = {
+    "วิทยาศาสตร์สุขภาพ": ["คณะแพทยศาสตร์","คณะทันตแพทยศาสตร์","คณะเภสัชศาสตร์","คณะพยาบาลศาสตร์","คณะสหเวชศาสตร์","คณะสาธารณสุขศาสตร์","คณะวิทยาศาสตร์การแพทย์"],
+    "วิทยาศาสตร์และเทคโนโลยี": ["คณะเทคโนโลยีสารสนเทศและการสื่อสาร (ICT)","คณะวิศวกรรมศาสตร์","คณะวิทยาศาสตร์","คณะเกษตรศาสตร์และทรัพยากรธรรมชาติ","คณะพลังงานและสิ่งแวดล้อม","คณะสถาปัตยกรรมศาสตร์และศิลปกรรมศาสตร์"],
+    "มนุษยศาสตร์และสังคมศาสตร์": ["คณะนิติศาสตร์","คณะรัฐศาสตร์และสังคมศาสตร์","คณะบริหารธุรกิจและนิเทศศาสตร์ (BCA)","คณะศิลปศาสตร์","วิทยาลัยการศึกษา","วิทยาลัยการจัดการ (กรุงเทพฯ)"]
+};
+
+const _STUDENT_STATUSES_SET = new Set(['นิสิต/นักศึกษา','บัณฑิตศึกษา (ป.โท)','บัณฑิตศึกษา (ป.เอก)']);
+
+function initEditProfileCascade() {
+    const statusSel = document.getElementById('editUserStatus');
+    const fieldGroupSel = document.getElementById('editFieldGroup');
+    const facultySel = document.getElementById('editFaculty');
+    if (!statusSel) return;
+
+    statusSel.addEventListener('change', () => {
+        const show = _STUDENT_STATUSES_SET.has(statusSel.value);
+        document.getElementById('editFieldGroupWrap').style.display = show ? '' : 'none';
+        document.getElementById('editFacultyWrap').style.display = 'none';
+        document.getElementById('editMajorWrap').style.display = 'none';
+        if (!show) { fieldGroupSel.value = ''; facultySel.innerHTML = '<option value="">-- เลือกคณะ --</option>'; }
+    });
+
+    fieldGroupSel.addEventListener('change', () => {
+        const group = fieldGroupSel.value;
+        facultySel.innerHTML = '<option value="">-- เลือกคณะ --</option>';
+        (_FACULTY_MAP[group] || []).forEach(f => {
+            const o = document.createElement('option'); o.value = f; o.textContent = f; facultySel.appendChild(o);
+        });
+        document.getElementById('editFacultyWrap').style.display = group ? '' : 'none';
+        document.getElementById('editMajorWrap').style.display = 'none';
+    });
+
+    facultySel.addEventListener('change', () => {
+        document.getElementById('editMajorWrap').style.display = facultySel.value ? '' : 'none';
+    });
+}
+
+function openEditProfileModal() {
+    const raw = localStorage.getItem('playerData');
+    if (!raw) return;
+    const pd = JSON.parse(raw);
+
+    document.getElementById('editNickname').value   = pd.nickname   || '';
+    document.getElementById('editFirstName').value  = pd.firstName  || '';
+    document.getElementById('editLastName').value   = pd.lastName   || '';
+    document.getElementById('editStudentId').value  = pd.studentId  || '';
+    document.getElementById('editPhone').value      = pd.phone      || '';
+
+    // สถานะผู้ใช้ (รองรับทั้ง userStatus ใหม่ และ year เก่า)
+    const statusVal = pd.userStatus || pd.year || '';
+    document.getElementById('editUserStatus').value = statusVal;
+
+    // ซ่อน/แสดง field group ตามสถานะ
+    const showGroup = _STUDENT_STATUSES_SET.has(statusVal);
+    document.getElementById('editFieldGroupWrap').style.display = showGroup ? '' : 'none';
+    document.getElementById('editFacultyWrap').style.display    = showGroup && pd.fieldGroup ? '' : 'none';
+    document.getElementById('editMajorWrap').style.display      = showGroup && pd.faculty    ? '' : 'none';
+
+    if (showGroup) {
+        document.getElementById('editFieldGroup').value = pd.fieldGroup || '';
+        // populate faculty dropdown
+        const fg = pd.fieldGroup || '';
+        const facSel = document.getElementById('editFaculty');
+        facSel.innerHTML = '<option value="">-- เลือกคณะ --</option>';
+        (_FACULTY_MAP[fg] || []).forEach(f => {
+            const o = document.createElement('option'); o.value = f; o.textContent = f; facSel.appendChild(o);
+        });
+        facSel.value = pd.faculty || '';
+        document.getElementById('editMajor').value = pd.major || '';
+    }
+
+    document.getElementById('editProfileError').classList.add('hidden');
+    document.getElementById('editProfileModal').classList.remove('modal-hidden');
+}
+
+function closeEditProfileModal() {
+    document.getElementById('editProfileModal').classList.add('modal-hidden');
+}
+
+async function saveEditProfile() {
+    const nickname  = document.getElementById('editNickname').value.trim();
+    const firstName = document.getElementById('editFirstName').value.trim();
+    const lastName  = document.getElementById('editLastName').value.trim();
+    const phone     = document.getElementById('editPhone').value.trim();
+    const userStatus = document.getElementById('editUserStatus').value;
+    const fieldGroup = document.getElementById('editFieldGroup').value;
+    const faculty    = document.getElementById('editFaculty').value;
+    const major      = document.getElementById('editMajor').value;
+    const studentId  = document.getElementById('editStudentId').value.trim();
+    const errBox     = document.getElementById('editProfileError');
+
+    errBox.classList.add('hidden');
+
+    if (!nickname)   { errBox.textContent = 'กรุณากรอกชื่อเล่น';    errBox.classList.remove('hidden'); return; }
+    if (!firstName)  { errBox.textContent = 'กรุณากรอกชื่อจริง';    errBox.classList.remove('hidden'); return; }
+    if (!lastName)   { errBox.textContent = 'กรุณากรอกนามสกุล';    errBox.classList.remove('hidden'); return; }
+    if (!phone)      { errBox.textContent = 'กรุณากรอกเบอร์โทร';    errBox.classList.remove('hidden'); return; }
+    if (!userStatus) { errBox.textContent = 'กรุณาเลือกสถานะผู้ใช้'; errBox.classList.remove('hidden'); return; }
+
+    const raw = localStorage.getItem('playerData');
+    const oldData = raw ? JSON.parse(raw) : {};
+    const uid = localStorage.getItem('playerUid');
+
+    const updatedData = {
+        ...oldData,
+        nickname,
+        firstName,
+        lastName,
+        phone,
+        studentId: studentId || '',
+        userStatus,
+        fieldGroup: fieldGroup || '',
+        faculty: faculty || '',
+        major: major || ''
+    };
+
+    // อัปเดต localStorage / sessionStorage
+    localStorage.setItem('playerData', JSON.stringify(updatedData));
+    localStorage.setItem('playerNickname', nickname);
+    sessionStorage.setItem('playerData', JSON.stringify(updatedData));
+    sessionStorage.setItem('playerNickname', nickname);
+
+    // อัปเดต Firestore (ถ้าเชื่อมต่ออยู่)
+    if (db && uid) {
+        try {
+            await db.collection('users').doc(uid).update({
+                nickname, firstName, lastName, phone,
+                studentId: studentId || '',
+                userStatus, fieldGroup: fieldGroup || '',
+                faculty: faculty || '', major: major || ''
+            });
+            // อัปเดตชื่อใน players collection ด้วย
+            await db.collection('players').doc(uid).update({
+                name: nickname,
+                fullName: `${firstName} ${lastName}`
+            });
+        } catch (e) {
+            console.warn('Firestore update warning:', e);
+        }
+    }
+
+    closeEditProfileModal();
+    currentUserProfile = updatedData;
+    renderProfileDrawer(updatedData);
+    alert('บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว!');
+}
