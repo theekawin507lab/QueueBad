@@ -1,7 +1,8 @@
 /* =============================================
    login.js — JavaScript สำหรับหน้า Login
    รองรับทั้ง Admin (hardcoded fallback / firebase) และ Player (Firebase Auth & Google Sign-In)
-   พร้อมระบบ Persistent Login (จดจำผู้ใช้เมื่อรีเฟรชหน้าต่าง)
+   พร้อมระบบ Persistent Login (จดจำผู้ใช้เมื่อรีเฟรชหน้าต่าง),
+   Toggle ดู/ซ่อนรหัสผ่าน, ระบบรีเซ็ตรหัสผ่าน (Password Reset Modal)
    ============================================= */
 
 // ฟังก์ชันไปหน้า Public
@@ -17,12 +18,26 @@ function saveSession(key, value, remember = true) {
     sessionStorage.setItem(key, value);
 }
 
-// ฟังก์ชันนำทางและบันทึกสิทธิ์ตาม Role ของผู้ใช้งาน
+// ฟังก์ชันนำทางและบันทึกสิทธิ์ตาม Role ของผู้ใช้งาน (รองรับทั้ง Email/Pass และ Google Sign-In)
 async function handleUserSessionRouting(user, remember = true) {
+    let fallbackNickname = 'ผู้เล่น';
+    let firstName = '';
+    let lastName = '';
+
+    if (user.displayName) {
+        const nameParts = user.displayName.trim().split(/\s+/);
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+        fallbackNickname = firstName;
+    } else if (user.email) {
+        fallbackNickname = user.email.split('@')[0];
+        firstName = fallbackNickname;
+    }
+
     if (!db) {
         saveSession('isPlayerLoggedIn', 'true', remember);
         saveSession('playerUid', user.uid, remember);
-        saveSession('playerNickname', user.displayName || (user.email ? user.email.split('@')[0] : 'ผู้เล่น'), remember);
+        saveSession('playerNickname', fallbackNickname, remember);
         window.location.replace('public.html');
         return;
     }
@@ -41,7 +56,7 @@ async function handleUserSessionRouting(user, remember = true) {
                 return;
             } else {
                 // ผู้เล่นทั่วไป (Player)
-                const nickname = userData.nickname || user.displayName || 'ผู้เล่น';
+                const nickname = userData.nickname || fallbackNickname;
                 saveSession('isPlayerLoggedIn', 'true', remember);
                 saveSession('playerUid', user.uid, remember);
                 saveSession('playerNickname', nickname, remember);
@@ -49,15 +64,19 @@ async function handleUserSessionRouting(user, remember = true) {
 
                 // อัปเดตสถานะว่ามาสนามแล้วในคอลเลกชัน players
                 try {
-                    await db.collection('players').doc(user.uid).set({
+                    const playerPayload = {
                         uid: user.uid,
                         name: nickname,
-                        fullName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+                        fullName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || nickname,
                         isPresent: true,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
+                    };
+                    if (user.photoURL && !userData.avatar) {
+                        playerPayload.photoURL = user.photoURL;
+                    }
+                    await db.collection('players').doc(user.uid).set(playerPayload, { merge: true });
                 } catch (pErr) {
-                    console.warn('Cannot update presence:', pErr);
+                    console.warn('Cannot update presence in players:', pErr);
                 }
 
                 window.location.replace('public.html');
@@ -65,15 +84,22 @@ async function handleUserSessionRouting(user, remember = true) {
             }
         } else {
             // บัญชีมีใน Auth แต่ไม่มีใน doc users (เช่น Login ด้วย Google ครั้งแรก)
-            const fallbackNickname = user.displayName ? user.displayName.split(' ')[0] : (user.email ? user.email.split('@')[0] : 'ผู้เล่น');
             const defaultUserData = {
                 uid: user.uid,
                 email: user.email || '',
                 nickname: fallbackNickname,
-                firstName: user.displayName || fallbackNickname,
-                lastName: '',
+                firstName: firstName || fallbackNickname,
+                lastName: lastName || '',
+                studentId: '',
+                phone: '',
+                userStatus: 'บุคคลทั่วไป',
+                fieldGroup: '',
+                faculty: '',
+                major: '',
                 role: 'player',
-                provider: user.providerData && user.providerData[0] ? user.providerData[0].providerId : 'google.com',
+                authProvider: (user.providerData && user.providerData[0]) ? user.providerData[0].providerId : 'google.com',
+                photoURL: user.photoURL || '',
+                isPresent: true,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
@@ -82,12 +108,13 @@ async function handleUserSessionRouting(user, remember = true) {
                 await db.collection('players').doc(user.uid).set({
                     uid: user.uid,
                     name: fallbackNickname,
-                    fullName: defaultUserData.firstName,
+                    fullName: `${firstName} ${lastName}`.trim() || fallbackNickname,
                     isPresent: true,
+                    photoURL: user.photoURL || '',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             } catch (pErr) {
-                console.warn('Cannot create user profile doc:', pErr);
+                console.warn('Cannot auto-provision user profile doc:', pErr);
             }
 
             saveSession('isPlayerLoggedIn', 'true', remember);
@@ -101,7 +128,7 @@ async function handleUserSessionRouting(user, remember = true) {
         console.error('handleUserSessionRouting error:', e);
         saveSession('isPlayerLoggedIn', 'true', remember);
         saveSession('playerUid', user.uid, remember);
-        saveSession('playerNickname', user.displayName || 'ผู้เล่น', remember);
+        saveSession('playerNickname', fallbackNickname, remember);
         window.location.replace('public.html');
     }
 }
@@ -148,7 +175,167 @@ async function checkExistingSession() {
     }
 }
 
+// =============================================
+// ระบบกดดู/ซ่อนรหัสผ่าน (Show / Hide Password)
+// =============================================
+function initPasswordToggle() {
+    const toggleBtn = document.getElementById('togglePasswordBtn');
+    const passInput = document.getElementById('password');
+    const eyeIcon = document.getElementById('eyeIcon');
+    const eyeSlashIcon = document.getElementById('eyeSlashIcon');
+
+    if (!toggleBtn || !passInput) return;
+
+    toggleBtn.addEventListener('click', () => {
+        const isPassword = passInput.getAttribute('type') === 'password';
+        passInput.setAttribute('type', isPassword ? 'text' : 'password');
+
+        if (isPassword) {
+            if (eyeIcon) eyeIcon.classList.add('hidden');
+            if (eyeSlashIcon) eyeSlashIcon.classList.remove('hidden');
+            toggleBtn.setAttribute('title', 'ซ่อนรหัสผ่าน');
+            toggleBtn.setAttribute('aria-label', 'ซ่อนรหัสผ่าน');
+        } else {
+            if (eyeIcon) eyeIcon.classList.remove('hidden');
+            if (eyeSlashIcon) eyeSlashIcon.classList.add('hidden');
+            toggleBtn.setAttribute('title', 'แสดงรหัสผ่าน');
+            toggleBtn.setAttribute('aria-label', 'แสดงรหัสผ่าน');
+        }
+    });
+}
+
+// =============================================
+// ระบบรีเซ็ตรหัสผ่าน (Password Reset Modal & Email Flow)
+// =============================================
+function initPasswordReset() {
+    const forgotBtn = document.getElementById('forgotPasswordBtn');
+    const modal = document.getElementById('resetPasswordModal');
+    const card = document.getElementById('resetModalCard');
+    const closeBtn = document.getElementById('closeResetModalBtn');
+    const cancelBtn = document.getElementById('cancelResetBtn');
+    const resetForm = document.getElementById('resetPasswordForm');
+    const resetEmailInput = document.getElementById('resetEmail');
+    const resetMessage = document.getElementById('resetMessage');
+    const sendResetBtn = document.getElementById('sendResetBtn');
+    const usernameInput = document.getElementById('username');
+
+    if (!modal) return;
+
+    function openModal() {
+        // ดึงอีเมลจากช่อง username มาใส่ล่วงหน้าถ้าผู้ใช้พิมพ์รูปแบบอีเมลไว้
+        const currentUsername = usernameInput ? usernameInput.value.trim() : '';
+        if (currentUsername.includes('@') && resetEmailInput) {
+            resetEmailInput.value = currentUsername;
+        }
+
+        if (resetMessage) {
+            resetMessage.classList.add('hidden');
+            resetMessage.className = 'hidden p-3 rounded-lg text-xs font-medium border';
+            resetMessage.textContent = '';
+        }
+
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            modal.classList.remove('opacity-0');
+            if (card) {
+                card.classList.remove('scale-95');
+                card.classList.add('scale-100');
+            }
+        });
+
+        if (resetEmailInput) {
+            setTimeout(() => resetEmailInput.focus(), 150);
+        }
+    }
+
+    function closeModal() {
+        modal.classList.add('opacity-0');
+        if (card) {
+            card.classList.remove('scale-100');
+            card.classList.add('scale-95');
+        }
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 250);
+    }
+
+    if (forgotBtn) forgotBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+    // ปิดเมื่อคลิกฉากหลัง
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // ปิดเมื่อกดแป้น Escape
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+
+    if (resetForm) {
+        resetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = resetEmailInput ? resetEmailInput.value.trim() : '';
+
+            if (!email) return;
+
+            if (!auth) {
+                showResetStatus('ระบบเชื่อมต่อ Firebase ไม่พร้อม กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', false);
+                return;
+            }
+
+            if (sendResetBtn) {
+                sendResetBtn.disabled = true;
+                sendResetBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                sendResetBtn.innerHTML = '<span>กำลังส่งลิงก์...</span>';
+            }
+
+            try {
+                await auth.sendPasswordResetEmail(email);
+                showResetStatus(`✅ ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง ${email} เรียบร้อยแล้ว! กรุณาตรวจสอบกล่องจดหมาย (Inbox หรือ Junk/Spam) และคลิกลิงก์เพื่อตั้งรหัสผ่านใหม่`, true);
+                resetForm.reset();
+                setTimeout(() => {
+                    closeModal();
+                }, 4000);
+            } catch (err) {
+                console.error('Password Reset Error:', err);
+                let errorText = 'ส่งลิงก์รีเซ็ตไม่สำเร็จ: ' + err.message;
+                if (err.code === 'auth/user-not-found') {
+                    errorText = 'ไม่พบบัญชีผู้ใช้งานที่ใช้อีเมลนี้ในระบบ โปรดตรวจสอบความถูกต้องหรือลงทะเบียนใหม่';
+                } else if (err.code === 'auth/invalid-email') {
+                    errorText = 'รูปแบบอีเมลไม่ถูกต้อง กรุณากรอกเป็น example@email.com';
+                } else if (err.code === 'auth/too-many-requests') {
+                    errorText = 'มีการส่งคำขอบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง';
+                }
+                showResetStatus('❌ ' + errorText, false);
+            } finally {
+                if (sendResetBtn) {
+                    sendResetBtn.disabled = false;
+                    sendResetBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                    sendResetBtn.innerHTML = '<span>ส่งลิงก์รีเซ็ต</span>';
+                }
+            }
+        });
+    }
+
+    function showResetStatus(msg, isSuccess) {
+        if (!resetMessage) return;
+        resetMessage.classList.remove('hidden');
+        resetMessage.textContent = msg;
+        if (isSuccess) {
+            resetMessage.className = 'p-3 rounded-lg text-xs font-medium border bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800';
+        } else {
+            resetMessage.className = 'p-3 rounded-lg text-xs font-medium border bg-red-50 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800';
+        }
+    }
+}
+
+// =============================================
 // ระบบตรวจสอบ Login แบบกรอก Email / Password
+// =============================================
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -203,7 +390,9 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     }
 });
 
-// ระบบเข้าสู่ระบบด้วย Google (Google Sign-In)
+// =============================================
+// ระบบเข้าสู่ระบบด้วย Google (Enhanced Google Sign-In)
+// =============================================
 const googleLoginBtn = document.getElementById('googleLoginBtn');
 if (googleLoginBtn) {
     googleLoginBtn.addEventListener('click', async () => {
@@ -243,10 +432,14 @@ if (googleLoginBtn) {
                 errorBox.textContent = 'การเข้าสู่ระบบถูกยกเลิก (หน้าต่าง Google ถูกปิด)';
             } else if (err.code === 'auth/cancelled-popup-request') {
                 errorBox.textContent = 'มีการเรียกหน้าต่างเข้าสู่ระบบซ้ำซ้อน กรุณาลองใหม่อีกครั้ง';
+            } else if (err.code === 'auth/popup-blocked') {
+                errorBox.textContent = 'เบราว์เซอร์บล็อกหน้าต่างป๊อปอัป กรุณาอนุญาตป๊อปอัปสำหรับเว็บไซต์นี้แล้วลองใหม่';
             } else if (err.code === 'auth/operation-not-allowed') {
                 errorBox.textContent = 'ยังไม่ได้เปิดใช้งาน Google Sign-in ใน Firebase Console (Authentication > Sign-in method > Google)';
             } else if (err.code === 'auth/unauthorized-domain') {
                 errorBox.textContent = 'โดเมนนี้ยังไม่ได้รับอนุญาตใน Firebase Console (Authorized Domains)';
+            } else if (err.code === 'auth/account-exists-with-different-credential') {
+                errorBox.textContent = 'อีเมลนี้เคยลงทะเบียนด้วยรหัสผ่านแล้ว กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน';
             } else {
                 errorBox.textContent = 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ: ' + (err.message || 'เกิดข้อผิดพลาด');
             }
@@ -269,5 +462,7 @@ if (googleLoginBtn) {
 // ตรวจสอบและเริ่มต้นการทำงานเมื่อโหลดหน้า
 window.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    initPasswordToggle();
+    initPasswordReset();
     checkExistingSession();
 });

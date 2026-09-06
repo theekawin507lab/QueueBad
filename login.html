@@ -46,9 +46,24 @@
                 <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                     รหัสผ่าน (Password)
                 </label>
-                <input type="password" id="password" required autocomplete="current-password"
-                    class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                    placeholder="ใส่รหัสผ่าน">
+                <div class="relative">
+                    <input type="password" id="password" required autocomplete="current-password"
+                        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pl-4 pr-11 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        placeholder="ใส่รหัสผ่าน">
+                    <button type="button" id="togglePasswordBtn"
+                        class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition focus:outline-none"
+                        title="แสดง/ซ่อนรหัสผ่าน" aria-label="แสดงหรือซ่อนรหัสผ่าน">
+                        <!-- Eye icon (เปิดตา / เมื่อรหัสยังถูกซ่อนอยู่) -->
+                        <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <!-- Eye Slash icon (ปิดตา / เมื่อรหัสถูกแสดงเป็นข้อความ) -->
+                        <svg id="eyeSlashIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <div class="flex items-center justify-between text-xs sm:text-sm">
@@ -57,6 +72,10 @@
                         class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                     <span>จดจำการเข้าสู่ระบบ</span>
                 </label>
+                <button type="button" id="forgotPasswordBtn"
+                    class="text-blue-600 dark:text-blue-400 hover:underline font-semibold focus:outline-none transition">
+                    ลืมรหัสผ่าน?
+                </button>
             </div>
 
             <div id="errorMessage"
@@ -115,6 +134,56 @@
                     แบบฟอร์มขอใช้สนามล่วงหน้า (เอกสาร ม.พะเยา)
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal รีเซ็ตรหัสผ่าน (Password Reset Modal) -->
+    <div id="resetPasswordModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 transform transition-all scale-95 duration-300"
+            id="resetModalCard">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xl shadow-inner">
+                        🔑
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">รีเซ็ตรหัสผ่าน</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">ส่งลิงก์ตั้งรหัสผ่านใหม่ไปยังอีเมลของคุณ</p>
+                    </div>
+                </div>
+                <button type="button" id="closeResetModalBtn"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    ✕
+                </button>
+            </div>
+
+            <form id="resetPasswordForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        อีเมลที่ใช้ลงทะเบียน <span class="text-red-500">*</span>
+                    </label>
+                    <input type="email" id="resetEmail" required autocomplete="email"
+                        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        placeholder="example@email.com">
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                        ระบบจะส่งอีเมลที่มีลิงก์สำหรับตั้งรหัสผ่านใหม่ไปยังกล่องจดหมายของคุณ
+                    </p>
+                </div>
+
+                <div id="resetMessage" class="hidden p-3 rounded-lg text-xs font-medium border"></div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" id="cancelResetBtn"
+                        class="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold text-sm transition">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" id="sendResetBtn"
+                        class="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow transition flex items-center justify-center gap-2">
+                        <span>ส่งลิงก์รีเซ็ต</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
